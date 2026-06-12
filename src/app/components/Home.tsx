@@ -20,6 +20,7 @@ interface ChatMessage {
 }
 
 interface TripAnswers {
+  origin: string;
   destination: string;
   dates: string;
   budget: string;
@@ -41,6 +42,11 @@ const STORAGE_KEY = 'partiu-trip-plan';
 
 const questions: { key: keyof TripAnswers; text: string; helper: string }[] = [
   {
+    key: 'origin',
+    text: 'De onde você vai sair?',
+    helper: 'Cidade, estado ou país de origem',
+  },
+  {
     key: 'destination',
     text: 'Para qual destino você quer viajar?',
     helper: 'Cidade, região ou país',
@@ -52,8 +58,8 @@ const questions: { key: keyof TripAnswers; text: string; helper: string }[] = [
   },
   {
     key: 'budget',
-    text: 'Qual valor previsto para essa viagem?',
-    helper: 'Pode ser total ou por pessoa',
+    text: 'Qual é o orçamento previsto para essa viagem?',
+    helper: 'Ex.: Orçamento total de R$ 2.500 ou R$ 900 por pessoa',
   },
   {
     key: 'accommodation',
@@ -97,6 +103,36 @@ const destinations: DestinationSuggestion[] = [
   },
 ];
 
+const brazilianStates = [
+  'Acre', 'Alagoas', 'Amapá', 'Amazonas', 'Bahia', 'Ceará', 'Distrito Federal', 'Espírito Santo', 'Goiás',
+  'Maranhão', 'Mato Grosso', 'Mato Grosso do Sul', 'Minas Gerais', 'Pará', 'Paraíba', 'Paraná', 'Pernambuco',
+  'Piauí', 'Rio de Janeiro', 'Rio Grande do Norte', 'Rio Grande do Sul', 'Rondônia', 'Roraima', 'Santa Catarina',
+  'São Paulo', 'Sergipe', 'Tocantins', 'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS',
+  'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO',
+];
+
+const knownCities = [
+  'Florianópolis', 'Floripa', 'São Paulo', 'Rio de Janeiro', 'Belo Horizonte', 'Curitiba', 'Porto Alegre',
+  'Brasília', 'Salvador', 'Recife', 'Fortaleza', 'Natal', 'João Pessoa', 'Maceió', 'Aracaju', 'Manaus', 'Belém',
+  'Goiânia', 'Cuiabá', 'Campo Grande', 'Vitória', 'Gramado', 'Canela', 'Foz do Iguaçu', 'Balneário Camboriú',
+  'Bombinhas', 'Ubatuba', 'Paraty', 'Búzios', 'Angra dos Reis', 'Ouro Preto', 'Tiradentes', 'Bonito',
+  'Jericoacoara', 'Lençóis Maranhenses', 'Chapada Diamantina', 'Porto Seguro', 'Morro de São Paulo',
+  'Fernando de Noronha', 'Porto de Galinhas', 'Maragogi', 'Bariloche', 'Buenos Aires', 'Santiago', 'Montevidéu',
+  'Punta del Este', 'Lisboa', 'Porto', 'Madrid', 'Barcelona', 'Paris', 'Londres', 'Roma', 'Veneza', 'Milão',
+  'Amsterdã', 'Berlim', 'Praga', 'Viena', 'Atenas', 'Nova York', 'NYC', 'Orlando', 'Miami', 'Los Angeles',
+  'Las Vegas', 'San Francisco', 'Cancún', 'Cidade do México', 'Tóquio', 'Kyoto', 'Dubai',
+];
+
+const destinationAliases = [
+  'Brasil', 'Estados Unidos', 'EUA', 'USA', 'Reino Unido', 'Inglaterra', 'Escócia', 'Argentina', 'Chile',
+  'Uruguai', 'Paraguai', 'Peru', 'Colômbia', 'México', 'Canadá', 'Portugal', 'Espanha', 'França', 'Itália',
+  'Alemanha', 'Holanda', 'Países Baixos', 'Grécia', 'Japão', 'Emirados Árabes', 'África do Sul', 'Albânia',
+  'Arábia Saudita', 'Austrália', 'Áustria', 'Bélgica', 'Bolívia', 'China', 'Coreia do Sul', 'Costa Rica',
+  'Croácia', 'Cuba', 'Dinamarca', 'Egito', 'Equador', 'Finlândia', 'Índia', 'Indonésia', 'Irlanda', 'Islândia',
+  'Israel', 'Marrocos', 'Noruega', 'Nova Zelândia', 'Panamá', 'Polônia', 'República Tcheca', 'Suécia', 'Suíça',
+  'Tailândia', 'Turquia', 'Vietnã',
+];
+
 function buildTripPlan(answers: TripAnswers) {
   const tours = answers.tours
     .split(/,| e |;|\n/)
@@ -105,6 +141,7 @@ function buildTripPlan(answers: TripAnswers) {
 
   return {
     title: `Viagem para ${answers.destination}`,
+    origin: answers.origin,
     destination: answers.destination,
     dates: answers.dates,
     budget: answers.budget,
@@ -117,6 +154,7 @@ function buildTripPlan(answers: TripAnswers) {
 function buildSuggestedTripPlan(destination: DestinationSuggestion) {
   return {
     title: `Viagem para ${destination.name}`,
+    origin: '',
     destination: destination.name,
     dates: destination.dates,
     budget: destination.price,
@@ -124,6 +162,176 @@ function buildSuggestedTripPlan(destination: DestinationSuggestion) {
     tours: destination.tours,
     createdAt: new Date().toISOString(),
   };
+}
+
+function hasLetters(value: string) {
+  return /[a-zA-ZÀ-ÿ]/.test(value);
+}
+
+function normalizeDestination(value: string) {
+  return value
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function getCountryNames() {
+  try {
+    const intlWithRegions = Intl as typeof Intl & { supportedValuesOf?: (key: string) => string[] };
+    const regionCodes = intlWithRegions.supportedValuesOf?.('region') || [];
+    const displayNames = new Intl.DisplayNames(['pt-BR'], { type: 'region' });
+
+    return regionCodes
+      .map((code) => displayNames.of(code))
+      .filter((name): name is string => Boolean(name));
+  } catch {
+    return [];
+  }
+}
+
+const knownDestinationNames = new Set(
+  [...getCountryNames(), ...brazilianStates, ...knownCities, ...destinationAliases].map(normalizeDestination)
+);
+
+function isKnownDestination(value: string) {
+  const normalized = normalizeDestination(value);
+  const candidates = [
+    normalized,
+    ...normalized.split(/\s*,\s*|\s+-\s+/),
+    normalized.replace(/\b(cidade de|estado de|pais de|país de|praia de|ilha de)\b/g, '').trim(),
+  ].filter(Boolean);
+
+  return candidates.some((candidate) => knownDestinationNames.has(candidate));
+}
+
+function parseBudgetValue(value: string) {
+  const lower = value.toLowerCase();
+  const match = lower.match(/(?:r\$\s*)?(\d[\d.\s]*(?:,\d{1,2})?|\d+(?:\.\d+)?|\d+(?:,\d+)?)(?:\s*(mil|k|reais|real))?/i);
+  if (!match) return null;
+
+  const rawNumber = match[1].replace(/\s/g, '');
+  const hasDecimalComma = /,\d{1,2}$/.test(rawNumber);
+  const normalized = hasDecimalComma
+    ? rawNumber.replace(/\./g, '').replace(',', '.')
+    : rawNumber.replace(/[.,]/g, '');
+  const numericValue = Number(normalized);
+
+  if (!Number.isFinite(numericValue) || numericValue <= 0) return null;
+
+  const multiplier = /mil|k/.test(match[2] || '') ? 1000 : 1;
+  return Math.round(numericValue * multiplier).toString();
+}
+
+function parseAccommodationType(value: string) {
+  const normalized = normalizeDestination(value);
+  const options: { label: string; patterns: RegExp[] }[] = [
+    { label: 'Hotel', patterns: [/\bhotel\b/, /\bhoteis\b/, /\bhot[eé]is\b/] },
+    { label: 'Pousada', patterns: [/\bpousada\b/, /\bpousadinha\b/] },
+    { label: 'Resort', patterns: [/\bresort\b/, /\ball inclusive\b/] },
+    { label: 'Hostel', patterns: [/\bhostel\b/, /\balbergue\b/] },
+    { label: 'Apartamento', patterns: [/\bapartamento\b/, /\bapto\b/, /\bflat\b/] },
+    { label: 'Airbnb', patterns: [/\bairbnb\b/, /\bapp de hospedagem\b/] },
+    { label: 'Casa', patterns: [/\bcasa\b/, /\bsobrado\b/] },
+    { label: 'Chalé', patterns: [/\bchale\b/, /\bcabana\b/] },
+    { label: 'Lodge', patterns: [/\blodge\b/] },
+    { label: 'Camping', patterns: [/\bcamping\b/, /\bacampar\b/] },
+  ];
+
+  return options.find((option) => option.patterns.some((pattern) => pattern.test(normalized)))?.label || null;
+}
+
+function validateAnswer(key: keyof TripAnswers, value: string) {
+  const normalized = value.trim();
+
+  if (normalized.length < (key === 'origin' || key === 'destination' ? 2 : 3)) {
+    return 'Responda com um pouco mais de detalhe para eu montar um roteiro melhor.';
+  }
+
+  if (key === 'origin' || key === 'destination') {
+    if (!hasLetters(normalized)) {
+      return 'Informe uma cidade, estado ou país.';
+    }
+
+    if (!isKnownDestination(normalized)) {
+      return 'Não reconheci esse local. Informe uma cidade, estado ou país existente. Ex.: Florianópolis, Santa Catarina, Brasil ou Portugal.';
+    }
+  }
+
+  if (key === 'dates') {
+    const hasDateClue = /\d/.test(normalized) || /dia|dias|semana|fim de semana|janeiro|fevereiro|março|marco|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro/i.test(normalized);
+    if (!hasDateClue) {
+      return 'Informe uma data, período ou duração. Ex.: 10 a 14 de junho, 5 dias em julho ou fim de semana.';
+    }
+  }
+
+  if (key === 'budget' && !parseBudgetValue(normalized)) {
+    return 'Informe o orçamento com um valor numérico. Ex.: R$ 2.500, 2500 ou 2 mil.';
+  }
+
+  if (key === 'accommodation' && !parseAccommodationType(normalized)) {
+    return 'Informe um tipo de hospedagem reconhecido. Ex.: hotel, pousada, resort, hostel, apartamento, Airbnb, casa, chalé ou camping.';
+  }
+
+  if (key === 'tours' && normalized.length < 5) {
+    return 'Informe pelo menos um passeio ou experiência. Ex.: praias, museus, trilhas ou restaurantes.';
+  }
+
+  return '';
+}
+
+function extractTripDetails(message: string): Partial<TripAnswers> {
+  const text = message.trim();
+  const lower = text.toLowerCase();
+  const extracted: Partial<TripAnswers> = {};
+
+  const originMatch = text.match(/(?:saindo de|partindo de|origem em|origem:|de)\s+([A-ZÀ-Ýa-zà-ÿ\s'-]+?)(?=\s+(?:para|até|ate|rumo a|com destino)|[,.]|$)/i);
+  if (originMatch?.[1]) {
+    extracted.origin = originMatch[1].trim();
+  }
+
+  const destinationMatch = text.match(/(?:para|em|no|na|nas|nos)\s+([A-ZÀ-Ýa-zà-ÿ\s'-]+?)(?=\s+(?:por|com|entre|de|do|da|no|na|em|gastando|orçamento|orcamento|ficando|hosped|quero|pretendo|e\s+(?:ficar|visitar))|[,.]|$)/i);
+  if (destinationMatch?.[1]) {
+    extracted.destination = destinationMatch[1].trim();
+  }
+
+  const dateMatch = text.match(/(\d{1,2}\s*(?:a|até|-)\s*\d{1,2}(?:\s+de\s+[A-ZÀ-Ýa-zà-ÿ]+)?|\d{1,2}\s+dias?(?:\s+em\s+[A-ZÀ-Ýa-zà-ÿ]+)?|fim de semana|feriado|janeiro|fevereiro|março|marco|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)/i);
+  if (dateMatch?.[1]) {
+    extracted.dates = dateMatch[1].trim();
+  }
+
+  const budgetMatch = text.match(/(?:r\$\s*)?\d[\d.\s]*(?:,\d{2})?\s*(?:mil|reais)?(?:\s*(?:total|por pessoa|cada|pessoa))?/i);
+  if (budgetMatch?.[0] && /r\$|reais|mil|orçamento|orcamento|budget|gastar|gastando|valor|tenho|até|ate|no máximo|maximo/i.test(text)) {
+    const parsedBudget = parseBudgetValue(budgetMatch[0]);
+    if (parsedBudget) extracted.budget = parsedBudget;
+  }
+
+  const accommodationMatch = text.match(/(?:hotel|pousada|resort|hostel|albergue|apartamento|apto|flat|airbnb|casa|chal[eé]|cabana|lodge|camping|hospedagem)[A-ZÀ-Ýa-zà-ÿ\s'-]*/i);
+  if (accommodationMatch?.[0]) {
+    const parsedAccommodation = parseAccommodationType(accommodationMatch[0]);
+    if (parsedAccommodation) extracted.accommodation = parsedAccommodation;
+  }
+
+  const toursMatch = text.match(/(?:visitar|conhecer|incluir|passeios?|experi[eê]ncias?)\s+(.+)$/i);
+  if (toursMatch?.[1]) {
+    extracted.tours = toursMatch[1].trim();
+  } else if (/praia|trilha|museu|restaurante|compras|bar|gastronomia|show|parque|centro hist/i.test(lower)) {
+    const activities = text
+      .split(/,| e |;|\./)
+      .map((part) => part.trim())
+      .filter((part) => /praia|trilha|museu|restaurante|compras|bar|gastronomia|show|parque|centro hist/i.test(part));
+    if (activities.length) extracted.tours = activities.join(', ');
+  }
+
+  return Object.fromEntries(
+    Object.entries(extracted).filter(([key, value]) => value && !validateAnswer(key as keyof TripAnswers, value))
+  ) as Partial<TripAnswers>;
+}
+
+function getMissingStep(values: Partial<TripAnswers>) {
+  return questions.findIndex((question) => !values[question.key]);
 }
 
 export function Home() {
@@ -136,7 +344,7 @@ export function Home() {
     {
       id: 1,
       from: 'bot',
-      text: 'Descreva sua viagem ideal para começarmos. Depois vou te fazer algumas perguntas rápidas e montar seu roteiro.',
+      text: 'Descreva sua viagem ideal. Se puder, inclua origem, destino, período, orçamento, hospedagem e passeios; eu completo perguntando só o que faltar.',
     },
   ]);
 
@@ -161,16 +369,45 @@ export function Home() {
     pushMessage('user', value);
 
     if (!chatStarted) {
-      pushMessage('bot', questions[0].text);
+      const extractedAnswers = extractTripDetails(value);
+      const missingStep = getMissingStep(extractedAnswers);
+
+      if (Object.keys(extractedAnswers).length > 0) {
+        setAnswers(extractedAnswers);
+        pushMessage('bot', 'Consegui identificar algumas informações na sua mensagem. Vou perguntar só o que ainda falta.');
+      }
+
+      if (missingStep === -1) {
+        const plan = buildTripPlan(extractedAnswers as TripAnswers);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(plan));
+        pushMessage('bot', 'Roteiro criado com os dados que você enviou. Vou abrir seu planejamento agora.');
+        window.setTimeout(() => navigate('/planejamento'), 650);
+        return;
+      }
+
+      setStep(missingStep);
+      pushMessage('bot', questions[missingStep].text);
       return;
     }
 
     const currentQuestion = questions[step];
-    const nextAnswers = { ...answers, [currentQuestion.key]: value };
+    const validationError = validateAnswer(currentQuestion.key, value);
+    if (validationError) {
+      pushMessage('bot', validationError);
+      return;
+    }
+
+    const storedValue =
+      currentQuestion.key === 'budget'
+        ? parseBudgetValue(value) || value
+        : currentQuestion.key === 'accommodation'
+          ? parseAccommodationType(value) || value
+          : value;
+    const nextAnswers = { ...answers, [currentQuestion.key]: storedValue };
     setAnswers(nextAnswers);
 
-    if (step < questions.length - 1) {
-      const nextStep = step + 1;
+    const nextStep = getMissingStep(nextAnswers);
+    if (nextStep !== -1) {
       setStep(nextStep);
       pushMessage('bot', questions[nextStep].text);
       return;
@@ -196,7 +433,7 @@ export function Home() {
       {
         id: 1,
         from: 'bot',
-        text: 'Descreva sua viagem ideal para começarmos. Depois vou te fazer algumas perguntas rápidas e montar seu roteiro.',
+        text: 'Descreva sua viagem ideal. Se puder, inclua origem, destino, período, orçamento, hospedagem e passeios; eu completo perguntando só o que faltar.',
       },
     ]);
   };
@@ -260,7 +497,7 @@ export function Home() {
             </div>
 
             {chatStarted && activeQuestion && (
-              <div className="mb-3 grid grid-cols-2 lg:grid-cols-5 gap-2">
+              <div className="mb-3 grid grid-cols-2 lg:grid-cols-6 gap-2">
                 {questions.map((question, index) => {
                   const completed = Boolean(answers[question.key]);
                   return (
@@ -290,7 +527,7 @@ export function Home() {
                 value={input}
                 onChange={(event) => setInput(event.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder={chatStarted && activeQuestion ? activeQuestion.helper : 'Ex.: Quero uma viagem de 5 dias no litoral nordestino...'}
+                placeholder={chatStarted && activeQuestion ? activeQuestion.helper : 'Ex.: Saindo de Florianópolis para Lisboa por 5 dias com R$ 4000...'}
                 className="flex-1 rounded-[14px] bg-white/20 backdrop-blur-sm px-4 py-3.5 text-white placeholder:text-white/70 border border-white/30 focus:outline-none focus:ring-2 focus:ring-white/50 text-sm"
               />
               <button
@@ -317,16 +554,18 @@ export function Home() {
               <div className="rounded-[16px] bg-white border border-gray-100 p-4 shadow-sm overflow-hidden">
                 <div className="flex items-center gap-2 mb-3 text-[#5A67D8]">
                   <MapPin className="h-4 w-4" />
-                  <h2 className="font-bold text-gray-900">Destino e período</h2>
+                  <h2 className="font-bold text-gray-900">Origem, destino e período</h2>
                 </div>
-                <p className="text-sm text-gray-700">{answers.destination || 'Aguardando destino'}</p>
+                <p className="text-sm text-gray-700">
+                  {answers.origin || 'Aguardando origem'} - {answers.destination || 'aguardando destino'}
+                </p>
                 <p className="mt-2 text-xs text-gray-500">{answers.dates || 'As datas entram aqui assim que você responder.'}</p>
               </div>
 
               <div className="rounded-[16px] bg-white border border-gray-100 p-4 shadow-sm overflow-hidden">
                 <div className="flex items-center gap-2 mb-3 text-[#5A67D8]">
                   <Wallet className="h-4 w-4" />
-                  <h2 className="font-bold text-gray-900">Valores e hospedagem</h2>
+                  <h2 className="font-bold text-gray-900">Orçamento e hospedagem</h2>
                 </div>
                 <p className="text-sm text-gray-700">{answers.budget || 'Orçamento ainda não informado'}</p>
                 <div className="mt-2 flex items-center gap-1.5 text-xs text-gray-500">

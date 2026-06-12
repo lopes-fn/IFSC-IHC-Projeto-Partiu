@@ -36,6 +36,7 @@ interface TripDay {
 
 interface PlannedTrip {
   title: string;
+  origin?: string;
   destination: string;
   dates: string;
   budget: string;
@@ -122,6 +123,7 @@ function buildTripDays(rawDates: string): TripDay[] {
 function buildItemsFromPlan(plan: PlannedTrip, days: TripDay[]): TimelineItem[] {
   const firstDay = days[0]?.id || 'day-1';
   const lastDay = days[days.length - 1]?.id || firstDay;
+  const origin = plan.origin?.trim();
   const tourTimes = ['10:00', '14:30', '17:30', '19:30'];
 
   const tourItems = plan.tours.map((tour, index) => {
@@ -144,7 +146,7 @@ function buildItemsFromPlan(plan: PlannedTrip, days: TripDay[]): TimelineItem[] 
       dayId: firstDay,
       time: '08:00',
       icon: 'Plane',
-      title: `Chegada em ${plan.destination}`,
+      title: origin ? `Saída de ${origin} para ${plan.destination}` : `Chegada em ${plan.destination}`,
       subtitle: `Início do período: ${plan.dates}`,
     },
     {
@@ -161,7 +163,7 @@ function buildItemsFromPlan(plan: PlannedTrip, days: TripDay[]): TimelineItem[] 
       dayId: lastDay,
       time: '18:00',
       icon: 'Plane',
-      title: `Retorno de ${plan.destination}`,
+      title: origin ? `Retorno para ${origin}` : `Retorno de ${plan.destination}`,
       subtitle: 'Encerramento do roteiro e deslocamento final',
     },
   ];
@@ -264,6 +266,7 @@ export function Planejamento() {
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [tripTitle, setTripTitle] = useState('');
   const [tripMeta, setTripMeta] = useState({
+    origin: '',
     destination: '',
     dates: '',
     budget: '',
@@ -286,6 +289,7 @@ export function Planejamento() {
       setTripTitle(plan.title);
       setTitleDraft(plan.title);
       setTripMeta({
+        origin: plan.origin || '',
         destination: plan.destination,
         dates: plan.dates,
         budget: plan.budget,
@@ -370,7 +374,7 @@ export function Planejamento() {
               </div>
               <div className="flex items-center gap-2 text-gray-500 text-sm">
                 <MapPin className="h-3.5 w-3.5" />
-                <span>{tripMeta.destination} - {tripMeta.dates}</span>
+                <span>{tripMeta.origin ? `${tripMeta.origin} - ` : ''}{tripMeta.destination} - {tripMeta.dates}</span>
               </div>
             </div>
 

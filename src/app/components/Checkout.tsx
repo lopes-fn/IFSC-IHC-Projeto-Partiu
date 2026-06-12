@@ -4,6 +4,7 @@ import { Calendar, Check, CreditCard, MapPin, Shield, Wallet } from 'lucide-reac
 
 interface PlannedTrip {
   title: string;
+  origin?: string;
   destination: string;
   dates: string;
   budget: string;
@@ -77,7 +78,7 @@ export function Checkout() {
           <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Finalizar pagamento</h1>
           <div className="mt-2 flex flex-wrap gap-2 text-xs text-gray-500">
             <span className="flex items-center gap-1 rounded-full bg-white border border-gray-100 px-3 py-1">
-              <MapPin className="h-3.5 w-3.5 text-[#5A67D8]" /> {plan.destination}
+              <MapPin className="h-3.5 w-3.5 text-[#5A67D8]" /> {plan.origin ? `${plan.origin} - ` : ''}{plan.destination}
             </span>
             <span className="flex items-center gap-1 rounded-full bg-white border border-gray-100 px-3 py-1">
               <Calendar className="h-3.5 w-3.5 text-[#5A67D8]" /> {plan.dates}
