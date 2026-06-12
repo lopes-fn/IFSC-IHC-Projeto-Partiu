@@ -21,8 +21,8 @@ export default function App() {
         <main className="flex-1 overflow-hidden">
         <Routes>
           <Route path="/" element={<Home />} />
-          <Route path="/planejamento" element={<Planejamento />} />
-          <Route path="/checkout" element={<Checkout />} />
+          <Route path="/planejamento" element={<Planejamento user={user} />} />
+          <Route path="/checkout" element={user ? <Checkout /> : <Navigate to="/login" state={{ from: '/checkout' }} replace />} />
           <Route path="/suporte" element={user ? <Suporte /> : <Navigate to="/login" state={{ from: '/suporte' }} replace />} />
           <Route path="/login" element={<Login onAuth={setUser} />} />
           <Route path="/cadastro" element={<Cadastro onAuth={setUser} />} />

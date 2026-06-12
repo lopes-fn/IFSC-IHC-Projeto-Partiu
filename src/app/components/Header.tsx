@@ -1,17 +1,28 @@
 import { LogOut, User, Menu, X } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { StoredUser } from './Auth';
+
+const STORAGE_KEY = 'partiu-trip-plan';
 
 export function Header({ user, onLogout }: { user: StoredUser | null; onLogout: () => void }) {
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [hasTripPlan, setHasTripPlan] = useState(false);
+
+  useEffect(() => {
+    try {
+      setHasTripPlan(Boolean(localStorage.getItem(STORAGE_KEY)));
+    } catch {
+      setHasTripPlan(false);
+    }
+  }, [location.pathname]);
 
   const menuItems = [
     { name: 'Home', path: '/' },
     { name: 'Planejamento', path: '/planejamento' },
-    { name: 'Checkout', path: '/checkout' },
+    ...(user && hasTripPlan ? [{ name: 'Checkout', path: '/checkout' }] : []),
     ...(user ? [{ name: 'Suporte', path: '/suporte' }] : []),
   ];
 

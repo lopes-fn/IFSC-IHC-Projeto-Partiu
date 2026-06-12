@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   AlertTriangle,
   CalendarDays,
@@ -15,6 +15,7 @@ import {
   Wallet,
   X,
 } from 'lucide-react';
+import type { StoredUser } from './Auth';
 
 type ItemIcon = 'Plane' | 'Hotel' | 'MapPinned' | 'Utensils' | 'AlertTriangle';
 
@@ -47,6 +48,7 @@ interface PlannedTrip {
 }
 
 const STORAGE_KEY = 'partiu-trip-plan';
+const PAYMENT_KEY = 'partiu-paid-trip';
 
 const iconMap: Record<ItemIcon, React.ElementType> = { Plane, Hotel, MapPinned, Utensils, AlertTriangle };
 
@@ -203,6 +205,30 @@ function getConflictItemIds(items: TimelineItem[]) {
   );
 }
 
+function getPlanSignature(plan: PlannedTrip) {
+  return JSON.stringify({
+    title: plan.title,
+    origin: plan.origin || '',
+    destination: plan.destination,
+    dates: plan.dates,
+    budget: plan.budget,
+    accommodation: plan.accommodation,
+    tours: plan.tours,
+    createdAt: plan.createdAt,
+    updatedAt: plan.updatedAt || '',
+  });
+}
+
+function isPlanPaid(plan: PlannedTrip) {
+  try {
+    const paidTrip = JSON.parse(localStorage.getItem(PAYMENT_KEY) || 'null') as { signature?: string } | null;
+    return paidTrip?.signature === getPlanSignature(plan);
+  } catch {
+    localStorage.removeItem(PAYMENT_KEY);
+    return false;
+  }
+}
+
 function EditableItem({
   item,
   days,
@@ -258,7 +284,8 @@ function EditableItem({
   );
 }
 
-export function Planejamento() {
+export function Planejamento({ user }: { user: StoredUser | null }) {
+  const navigate = useNavigate();
   const [hasTrip, setHasTrip] = useState(false);
   const [days, setDays] = useState<TripDay[]>([]);
   const [selectedDay, setSelectedDay] = useState('');
@@ -275,6 +302,8 @@ export function Planejamento() {
   });
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState('');
+  const [paymentCompleted, setPaymentCompleted] = useState(false);
+  const [checkoutLoginMessage, setCheckoutLoginMessage] = useState('');
 
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
@@ -289,6 +318,7 @@ export function Planejamento() {
       setItems(buildItemsFromPlan(plan, plannedDays));
       setTripTitle(plan.title);
       setTitleDraft(plan.title);
+      setPaymentCompleted(isPlanPaid(plan));
       setTripMeta({
         origin: plan.origin || '',
         destination: plan.destination,
@@ -311,6 +341,7 @@ export function Planejamento() {
     try {
       const plan = JSON.parse(stored) as PlannedTrip;
       localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...plan, ...updates, updatedAt: new Date().toISOString() }));
+      setPaymentCompleted(false);
     } catch {
       localStorage.removeItem(STORAGE_KEY);
     }
@@ -340,6 +371,18 @@ export function Planejamento() {
     setItems((prev) => [...prev, newItem]);
     markTripChanged();
     setEditingId(newItem.id);
+  };
+
+  const handleCheckoutClick = () => {
+    if (user) {
+      navigate('/checkout');
+      return;
+    }
+
+    setCheckoutLoginMessage('Você deve fazer login para continuar com seu pagamento.');
+    window.setTimeout(() => {
+      navigate('/login', { state: { from: '/checkout' } });
+    }, 900);
   };
 
   const selectedDayData = days.find((day) => day.id === selectedDay) || days[0];
@@ -514,9 +557,22 @@ export function Planejamento() {
             </div>
 
             <div className="pt-3 shrink-0">
-              <Link to="/checkout" className="flex w-full items-center justify-center rounded-[16px] bg-[#5A67D8] px-6 py-3 text-sm font-semibold text-white hover:bg-[#4C5BC7] transition-colors">
-                Ir para checkout
-              </Link>
+              <button
+                type="button"
+                onClick={handleCheckoutClick}
+                className={`flex w-full items-center justify-center rounded-[16px] px-6 py-3 text-sm font-semibold transition-colors ${
+                  paymentCompleted
+                    ? 'bg-[#A7F3D0] text-[#065F46] hover:bg-[#86EFAC]'
+                    : 'bg-[#5A67D8] text-white hover:bg-[#4C5BC7]'
+                }`}
+              >
+                {paymentCompleted ? 'Pagamento efetuado' : 'Ir para checkout'}
+              </button>
+              {checkoutLoginMessage && (
+                <p className="mt-2 rounded-[10px] bg-amber-50 px-3 py-2 text-center text-xs font-medium text-amber-700">
+                  {checkoutLoginMessage}
+                </p>
+              )}
             </div>
 
           </>

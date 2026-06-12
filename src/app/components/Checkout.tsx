@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Navigate } from 'react-router-dom';
 import { Calendar, Check, CreditCard, MapPin, Shield, Wallet } from 'lucide-react';
 
 interface PlannedTrip {
@@ -195,24 +195,7 @@ export function Checkout() {
   };
 
   if (!plan) {
-    return (
-      <div className="h-full flex flex-col overflow-hidden">
-        <div className="flex-1 flex items-center justify-center container mx-auto px-4 sm:px-6 py-4 sm:py-6">
-          <div className="max-w-md rounded-[18px] bg-white border border-gray-100 p-6 text-center shadow-sm">
-            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-[14px] bg-[#5A67D8]/10 text-[#5A67D8]">
-              <CreditCard className="h-6 w-6" />
-            </div>
-            <h1 className="text-xl font-bold text-gray-900">Nenhuma viagem para finalizar</h1>
-            <p className="mt-2 text-sm text-gray-500">
-              Escolha uma sugestão ou crie um roteiro no assistente antes de avançar para o pagamento.
-            </p>
-            <Link to="/" className="mt-5 inline-flex items-center justify-center rounded-[12px] bg-[#5A67D8] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#4C5BC7]">
-              Escolher viagem
-            </Link>
-          </div>
-        </div>
-      </div>
-    );
+    return <Navigate to="/planejamento" replace />;
   }
 
   return (
