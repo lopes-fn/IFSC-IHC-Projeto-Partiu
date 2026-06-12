@@ -43,6 +43,7 @@ interface PlannedTrip {
   accommodation: string;
   tours: string[];
   createdAt: string;
+  updatedAt?: string;
 }
 
 const STORAGE_KEY = 'partiu-trip-plan';
@@ -303,13 +304,27 @@ export function Planejamento() {
 
   const nextId = () => Math.max(0, ...items.map((i) => i.id)) + 1;
 
+  const markTripChanged = (updates: Partial<PlannedTrip> = {}) => {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (!stored) return;
+
+    try {
+      const plan = JSON.parse(stored) as PlannedTrip;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...plan, ...updates, updatedAt: new Date().toISOString() }));
+    } catch {
+      localStorage.removeItem(STORAGE_KEY);
+    }
+  };
+
   const handleSave = (updated: TimelineItem) => {
     setItems((prev) => prev.map((i) => (i.id === updated.id ? updated : i)));
+    markTripChanged();
     setEditingId(null);
   };
 
   const handleDelete = (id: number) => {
     setItems((prev) => prev.filter((i) => i.id !== id));
+    markTripChanged();
     setDeletingId(null);
   };
 
@@ -323,6 +338,7 @@ export function Planejamento() {
       subtitle: 'Descrição do item',
     };
     setItems((prev) => [...prev, newItem]);
+    markTripChanged();
     setEditingId(newItem.id);
   };
 
@@ -358,7 +374,7 @@ export function Planejamento() {
                   {editingTitle ? (
                     <div className="flex items-center gap-2">
                       <input value={titleDraft} onChange={(e) => setTitleDraft(e.target.value)} className="text-xl sm:text-2xl font-bold text-gray-900 border-b-2 border-[#5A67D8] bg-transparent focus:outline-none" autoFocus />
-                      <button onClick={() => { setTripTitle(titleDraft); setEditingTitle(false); }} className="rounded-full p-1 bg-[#5A67D8] text-white"><Check className="h-3.5 w-3.5" /></button>
+                      <button onClick={() => { setTripTitle(titleDraft); markTripChanged({ title: titleDraft }); setEditingTitle(false); }} className="rounded-full p-1 bg-[#5A67D8] text-white"><Check className="h-3.5 w-3.5" /></button>
                       <button onClick={() => { setTitleDraft(tripTitle); setEditingTitle(false); }} className="rounded-full p-1 bg-gray-100 text-gray-600"><X className="h-3.5 w-3.5" /></button>
                     </div>
                   ) : (
@@ -498,10 +514,11 @@ export function Planejamento() {
             </div>
 
             <div className="pt-3 shrink-0">
-              <button className="w-full rounded-[16px] bg-white border border-gray-200 px-6 py-3 text-sm font-semibold text-gray-900 hover:shadow-md transition-shadow">
-                Ver no mapa
-              </button>
+              <Link to="/checkout" className="flex w-full items-center justify-center rounded-[16px] bg-[#5A67D8] px-6 py-3 text-sm font-semibold text-white hover:bg-[#4C5BC7] transition-colors">
+                Ir para checkout
+              </Link>
             </div>
+
           </>
         )}
       </div>

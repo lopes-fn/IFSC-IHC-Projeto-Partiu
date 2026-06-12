@@ -12,7 +12,7 @@ export function Header({ user, onLogout }: { user: StoredUser | null; onLogout: 
     { name: 'Home', path: '/' },
     { name: 'Planejamento', path: '/planejamento' },
     { name: 'Checkout', path: '/checkout' },
-    { name: 'Suporte', path: '/suporte' },
+    ...(user ? [{ name: 'Suporte', path: '/suporte' }] : []),
   ];
 
   return (
