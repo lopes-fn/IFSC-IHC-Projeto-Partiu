@@ -344,7 +344,7 @@ export function Home() {
     {
       id: 1,
       from: 'bot',
-      text: 'Descreva sua viagem ideal. Se puder, inclua origem, destino, período, orçamento, hospedagem e passeios; eu completo perguntando só o que faltar.',
+      text: 'Comece por aqui seu planejamento: descreva sua viagem ideal. Se puder, inclua origem, destino, período, orçamento, hospedagem e passeios; eu completo perguntando só o que faltar.',
     },
   ]);
 
@@ -433,7 +433,7 @@ export function Home() {
       {
         id: 1,
         from: 'bot',
-        text: 'Descreva sua viagem ideal. Se puder, inclua origem, destino, período, orçamento, hospedagem e passeios; eu completo perguntando só o que faltar.',
+        text: 'Comece por aqui seu planejamento: descreva sua viagem ideal. Se puder, inclua origem, destino, período, orçamento, hospedagem e passeios; eu completo perguntando só o que faltar.',
       },
     ]);
   };

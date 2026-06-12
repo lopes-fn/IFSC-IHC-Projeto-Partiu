@@ -1,36 +1,60 @@
+# Travel Website Prototype - Testes
 
-  # Travel Website Prototype - Testes
+Este projeto é um protótipo de site de viagens criado a partir do Figma.
 
-  This is a code bundle for Travel Website Prototype - Testes. The original project is available at https://www.figma.com/design/LIrBHCpyyctahuBfwUEY28/Travel-Website-Prototype---Testes.
+Projeto original:
+https://www.figma.com/design/LIrBHCpyyctahuBfwUEY28/Travel-Website-Prototype---Testes
 
-  ## Running the code
+## Como executar o projeto
 
-  Run `npm i` to install the dependencies.
+Instale as dependências:
 
-  Run `npm run dev` to start the development server.
+```bash
+npm i
+```
 
-  ## Running on this computer only
+Inicie o servidor de desenvolvimento:
 
-  Run `npm run dev:local` to start the development server on `127.0.0.1`.
+```bash
+npm run dev
+```
 
-  ## Running on the local network
+## Executar apenas neste computador
 
-  Run `npm run dev:network` to start the development server on `0.0.0.0:5180`.
+Use este comando para iniciar o servidor em `127.0.0.1`:
 
-  Other computers on the same network can access the site at:
+```bash
+npm run dev:local
+```
 
-  `http://YOUR_LOCAL_IP:5180/`
+## Executar na rede local
 
-  If the site does not open from another computer, allow port `5180` in Windows Firewall.
+Use este comando para iniciar o servidor em `0.0.0.0:5180`:
 
-  ## Deploying to GitHub Pages
+```bash
+npm run dev:network
+```
 
-  This project is configured to deploy the production build in `dist/` with GitHub Actions.
+Outros computadores na mesma rede podem acessar o site por:
 
-  1. Push the project to a GitHub repository.
-  2. In GitHub, open `Settings` > `Pages`.
-  3. Set `Build and deployment` > `Source` to `GitHub Actions`.
-  4. Push to the `main` branch or run the workflow manually.
+```text
+http://SEU_IP_LOCAL:5180/
+```
 
-  The workflow sets the Vite `base` path automatically from the repository name.
-  
+Se o site não abrir em outro computador, libere a porta `5180` no Firewall do Windows.
+
+## Deploy no GitHub Pages
+
+Este projeto está configurado para publicar o build de produção da pasta `dist/` usando GitHub Actions.
+
+Para publicar:
+
+1. Envie o projeto para um repositório no GitHub.
+2. No GitHub, abra `Settings` > `Pages`.
+3. Em `Build and deployment` > `Source`, selecione `GitHub Actions`.
+4. Faça push para a branch `main` ou execute o workflow manualmente.
+
+O workflow define automaticamente o caminho `base` do Vite usando o nome do repositório.
+
+Site publicado:
+https://lopes-fn.github.io/IFSC-IHC-Projeto-Partiu/
