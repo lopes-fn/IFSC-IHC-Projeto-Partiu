@@ -17,7 +17,7 @@ export function Header({ user, onLogout }: { user: StoredUser | null; onLogout: 
     } catch {
       setHasTripPlan(false);
     }
-  }, [location.pathname]);
+  }, [location.pathname, user]);
 
   const menuItems = [
     { name: 'Home', path: '/' },

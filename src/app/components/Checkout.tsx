@@ -120,6 +120,7 @@ function validatePayment(form: PaymentForm) {
 
 export function Checkout() {
   const [plan, setPlan] = useState<PlannedTrip | null>(null);
+  const [planLoaded, setPlanLoaded] = useState(false);
   const [insuranceSelected, setInsuranceSelected] = useState(false);
   const [paymentForm, setPaymentForm] = useState<PaymentForm>({
     cardNumber: '',
@@ -134,7 +135,10 @@ export function Checkout() {
 
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
-    if (!stored) return;
+    if (!stored) {
+      setPlanLoaded(true);
+      return;
+    }
 
     try {
       const parsedPlan = JSON.parse(stored) as PlannedTrip;
@@ -147,6 +151,8 @@ export function Checkout() {
       localStorage.removeItem(STORAGE_KEY);
       setPlan(null);
       setIsPaid(false);
+    } finally {
+      setPlanLoaded(true);
     }
   }, []);
 
@@ -193,6 +199,10 @@ export function Checkout() {
       setIsPaid(true);
     }
   };
+
+  if (!planLoaded) {
+    return null;
+  }
 
   if (!plan) {
     return <Navigate to="/planejamento" replace />;
