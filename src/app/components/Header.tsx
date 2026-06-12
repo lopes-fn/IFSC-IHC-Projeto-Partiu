@@ -1,11 +1,12 @@
-import { User, Menu, X } from 'lucide-react';
+import { LogOut, User, Menu, X } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { useState } from 'react';
 import type { StoredUser } from './Auth';
 
-export function Header({ user }: { user: StoredUser | null }) {
+export function Header({ user, onLogout }: { user: StoredUser | null; onLogout: () => void }) {
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
 
   const menuItems = [
     { name: 'Home', path: '/' },
@@ -42,12 +43,44 @@ export function Header({ user }: { user: StoredUser | null }) {
 
           {/* Perfil + botão mobile */}
           <div className="flex items-center gap-2 sm:gap-4">
-            <Link to={user ? location.pathname : '/login'} state={{ from: location.pathname }} className="hidden sm:flex items-center gap-2 rounded-[16px] bg-gray-50 px-3 py-2 hover:bg-gray-100 transition-colors">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#5A67D8] text-white">
-                <User className="h-4 w-4" />
-              </div>
-              <span className="text-sm font-medium hidden lg:inline text-gray-700">{user?.name || 'Fazer login'}</span>
-            </Link>
+            <div className="relative hidden sm:block">
+              {user ? (
+                <>
+                  <button
+                    onClick={() => setUserMenuOpen((value) => !value)}
+                    className="flex items-center gap-2 rounded-[16px] bg-gray-50 px-3 py-2 hover:bg-gray-100 transition-colors"
+                    aria-expanded={userMenuOpen}
+                    aria-label="Opções da conta"
+                  >
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#5A67D8] text-white">
+                      <User className="h-4 w-4" />
+                    </div>
+                    <span className="text-sm font-medium hidden lg:inline text-gray-700">{user.name}</span>
+                  </button>
+                  {userMenuOpen && (
+                    <div className="absolute right-0 mt-2 w-44 rounded-[12px] border border-gray-100 bg-white p-1.5 shadow-lg">
+                      <button
+                        onClick={() => {
+                          onLogout();
+                          setUserMenuOpen(false);
+                        }}
+                        className="flex w-full items-center gap-2 rounded-[10px] px-3 py-2 text-left text-sm font-medium text-gray-700 hover:bg-gray-50"
+                      >
+                        <LogOut className="h-4 w-4 text-[#DD6B20]" />
+                        Logout
+                      </button>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <Link to="/login" state={{ from: location.pathname }} className="flex items-center gap-2 rounded-[16px] bg-gray-50 px-3 py-2 hover:bg-gray-100 transition-colors">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#5A67D8] text-white">
+                    <User className="h-4 w-4" />
+                  </div>
+                  <span className="text-sm font-medium hidden lg:inline text-gray-700">Fazer login</span>
+                </Link>
+              )}
+            </div>
             <button
               className="md:hidden rounded-full p-2 hover:bg-gray-50"
               onClick={() => setMobileOpen((v) => !v)}
@@ -75,6 +108,27 @@ export function Header({ user }: { user: StoredUser | null }) {
                 {item.name}
               </Link>
             ))}
+            {user ? (
+              <button
+                onClick={() => {
+                  onLogout();
+                  setMobileOpen(false);
+                }}
+                className="flex items-center gap-2 px-4 py-3 rounded-[14px] transition-all text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                <LogOut className="h-4 w-4 text-[#DD6B20]" />
+                Logout
+              </button>
+            ) : (
+              <Link
+                to="/login"
+                state={{ from: location.pathname }}
+                onClick={() => setMobileOpen(false)}
+                className="px-4 py-3 rounded-[14px] transition-all text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Fazer login
+              </Link>
+            )}
           </nav>
         )}
       </div>

@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useState } from 'react';
+import { FormEvent, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Lock, Mail, User } from 'lucide-react';
 
@@ -35,6 +35,10 @@ export function getStoredUser() {
   return getUsers().find((user) => user.email === currentEmail) || null;
 }
 
+export function clearStoredUser() {
+  localStorage.removeItem(CURRENT_USER_KEY);
+}
+
 function getReturnPath(state: unknown) {
   if (state && typeof state === 'object' && 'from' in state && typeof state.from === 'string') {
     return state.from;
@@ -46,10 +50,12 @@ function getReturnPath(state: unknown) {
 function AuthShell({
   title,
   subtitle,
+  returnPath,
   children,
 }: {
   title: string;
   subtitle: string;
+  returnPath: string;
   children: React.ReactNode;
 }) {
   return (
@@ -57,9 +63,9 @@ function AuthShell({
       <div className="container mx-auto flex min-h-full max-w-5xl items-center justify-center px-4 py-8 sm:px-6">
         <div className="grid w-full max-w-4xl overflow-hidden rounded-[18px] border border-gray-100 bg-white shadow-sm md:grid-cols-[1fr_1.15fr]">
           <div className="hidden bg-[#5A67D8] p-8 text-white md:flex md:flex-col md:justify-between">
-            <Link to="/" className="inline-flex w-fit items-center gap-2 text-sm font-semibold text-white/90 hover:text-white">
+            <Link to={returnPath} className="inline-flex w-fit items-center gap-2 text-sm font-semibold text-white/90 hover:text-white">
               <ArrowLeft className="h-4 w-4" />
-              Partiu?
+              Voltar
             </Link>
             <div>
               <p className="text-sm font-medium text-white/75">Sua viagem em um só lugar</p>
@@ -68,6 +74,10 @@ function AuthShell({
           </div>
 
           <div className="p-5 sm:p-8">
+            <Link to={returnPath} className="mb-5 inline-flex items-center gap-2 text-sm font-semibold text-[#5A67D8] hover:text-[#4C5BC7] md:hidden">
+              <ArrowLeft className="h-4 w-4" />
+              Voltar
+            </Link>
             <div className="mb-6">
               <h2 className="text-2xl font-bold text-gray-900">{title}</h2>
               <p className="mt-2 text-sm text-gray-500">{subtitle}</p>
@@ -88,19 +98,13 @@ export function Login({ onAuth }: { onAuth: (user: StoredUser) => void }) {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    if (getUsers().length === 0) {
-      navigate('/cadastro', { replace: true, state: { from: returnPath } });
-    }
-  }, [navigate, returnPath]);
-
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault();
     const cleanEmail = normalizeEmail(email);
     const user = getUsers().find((item) => item.email === cleanEmail);
 
     if (!user) {
-      navigate('/cadastro', { state: { from: returnPath, email: cleanEmail } });
+      setError('E-mail não cadastrado. Use a opção de novo cadastro abaixo.');
       return;
     }
 
@@ -115,7 +119,7 @@ export function Login({ onAuth }: { onAuth: (user: StoredUser) => void }) {
   };
 
   return (
-    <AuthShell title="Entrar" subtitle="Use seu e-mail e senha cadastrados para acessar o Partiu.">
+    <AuthShell title="Entrar" subtitle="Use seu e-mail e senha cadastrados para acessar o Partiu." returnPath={returnPath}>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label className="mb-1.5 block text-xs font-semibold text-gray-700">E-mail</label>
@@ -138,7 +142,7 @@ export function Login({ onAuth }: { onAuth: (user: StoredUser) => void }) {
           Entrar
         </button>
         <Link to="/cadastro" state={{ from: returnPath, email }} className="block text-center text-sm font-semibold text-[#5A67D8] hover:text-[#4C5BC7]">
-          Criar cadastro
+          Novo cadastro
         </Link>
       </form>
     </AuthShell>
@@ -170,7 +174,7 @@ export function Cadastro({ onAuth }: { onAuth: (user: StoredUser) => void }) {
   };
 
   return (
-    <AuthShell title="Cadastro" subtitle="Preencha seus dados para salvar seu acesso neste navegador.">
+    <AuthShell title="Cadastro" subtitle="Preencha seus dados para salvar seu acesso neste navegador." returnPath={returnPath}>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label className="mb-1.5 block text-xs font-semibold text-gray-700">Nome</label>
