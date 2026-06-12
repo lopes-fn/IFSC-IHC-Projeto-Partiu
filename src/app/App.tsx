@@ -1,4 +1,4 @@
-import { BrowserRouter, Navigate, Routes, Route } from 'react-router-dom';
+import { HashRouter, Navigate, Routes, Route } from 'react-router-dom';
 import { Header } from './components/Header';
 import { Home } from './components/Home';
 import { Planejamento } from './components/Planejamento';
@@ -15,7 +15,7 @@ export default function App() {
   };
 
   return (
-    <BrowserRouter>
+    <HashRouter>
       <div className="h-screen flex flex-col overflow-hidden bg-[#FDFBF7]">
         <Header user={user} onLogout={handleLogout} />
         <main className="flex-1 overflow-hidden">
@@ -29,6 +29,6 @@ export default function App() {
         </Routes>
         </main>
       </div>
-    </BrowserRouter>
+    </HashRouter>
   );
 }
