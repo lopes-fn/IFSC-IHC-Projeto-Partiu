@@ -4,18 +4,24 @@ import { Home } from './components/Home';
 import { Planejamento } from './components/Planejamento';
 import { Checkout } from './components/Checkout';
 import { Suporte } from './components/Suporte';
+import { Login, Cadastro, getStoredUser, type StoredUser } from './components/Auth';
+import { useState } from 'react';
 
 export default function App() {
+  const [user, setUser] = useState<StoredUser | null>(() => getStoredUser());
+
   return (
     <BrowserRouter>
       <div className="h-screen flex flex-col overflow-hidden bg-[#FDFBF7]">
-        <Header />
+        <Header user={user} />
         <main className="flex-1 overflow-hidden">
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/planejamento" element={<Planejamento />} />
           <Route path="/checkout" element={<Checkout />} />
           <Route path="/suporte" element={<Suporte />} />
+          <Route path="/login" element={<Login onAuth={setUser} />} />
+          <Route path="/cadastro" element={<Cadastro onAuth={setUser} />} />
         </Routes>
         </main>
       </div>

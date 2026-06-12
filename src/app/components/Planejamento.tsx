@@ -155,14 +155,6 @@ function buildItemsFromPlan(plan: PlannedTrip, days: TripDay[]): TimelineItem[] 
       title: `Check-in - ${plan.accommodation}`,
       subtitle: 'Hospedagem preferida para o roteiro',
     },
-    {
-      id: 3,
-      dayId: firstDay,
-      time: '12:00',
-      icon: 'AlertTriangle',
-      title: `Controle de orçamento - ${plan.budget}`,
-      subtitle: 'Acompanhar reservas, transporte, alimentação e passeios',
-    },
     ...tourItems,
     {
       id: tourItems.length + 4,

@@ -1,8 +1,9 @@
-import { Bell, User, Menu, X } from 'lucide-react';
+import { User, Menu, X } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { useState } from 'react';
+import type { StoredUser } from './Auth';
 
-export function Header() {
+export function Header({ user }: { user: StoredUser | null }) {
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -41,16 +42,12 @@ export function Header() {
 
           {/* Perfil + botão mobile */}
           <div className="flex items-center gap-2 sm:gap-4">
-            <button className="relative rounded-full p-2 hover:bg-gray-50">
-              <Bell className="h-5 w-5 text-gray-600" />
-              <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-[#DD6B20]"></span>
-            </button>
-            <button className="hidden sm:flex items-center gap-2 rounded-[16px] bg-gray-50 px-3 py-2 hover:bg-gray-100 transition-colors">
+            <Link to={user ? location.pathname : '/login'} state={{ from: location.pathname }} className="hidden sm:flex items-center gap-2 rounded-[16px] bg-gray-50 px-3 py-2 hover:bg-gray-100 transition-colors">
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#5A67D8] text-white">
                 <User className="h-4 w-4" />
               </div>
-              <span className="text-sm font-medium hidden lg:inline text-gray-700">Fazer login</span>
-            </button>
+              <span className="text-sm font-medium hidden lg:inline text-gray-700">{user?.name || 'Fazer login'}</span>
+            </Link>
             <button
               className="md:hidden rounded-full p-2 hover:bg-gray-50"
               onClick={() => setMobileOpen((v) => !v)}
