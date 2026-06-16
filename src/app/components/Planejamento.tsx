@@ -33,6 +33,7 @@ interface TripDay {
   id: string;
   label: string;
   shortLabel: string;
+  dateLabel?: string;
 }
 
 interface PlannedTrip {
@@ -40,6 +41,8 @@ interface PlannedTrip {
   origin?: string;
   destination: string;
   dates: string;
+  startDate?: string;
+  endDate?: string;
   budget: string;
   accommodation: string;
   tours: string[];
@@ -59,6 +62,8 @@ const iconOptions: { value: ItemIcon; label: string }[] = [
   { value: 'Utensils', label: 'Refeição' },
   { value: 'AlertTriangle', label: 'Alerta' },
 ];
+
+const accommodationOptions = ['Hotel', 'Pousada', 'Resort', 'Hostel', 'Apartamento', 'Airbnb', 'Casa', 'Chalé', 'Lodge', 'Camping'];
 
 const monthMap: Record<string, number> = {
   janeiro: 0,
@@ -88,12 +93,50 @@ function formatDay(date: Date): TripDay {
   const weekday = titleCase(date.toLocaleDateString('pt-BR', { weekday: 'long' }));
   const month = titleCase(date.toLocaleDateString('pt-BR', { month: 'long' }));
   const day = date.getDate();
+  const dateLabel = date.toLocaleDateString('pt-BR');
 
   return {
     id: `day-${day}-${date.getMonth() + 1}`,
     label: `${weekday}, ${day} de ${month}`,
-    shortLabel: `${day} ${month.slice(0, 3)}`,
+    shortLabel: date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
+    dateLabel,
   };
+}
+
+function formatDayForItem(day?: TripDay) {
+  if (!day) return 'Dia da viagem';
+  return day.dateLabel ? `${day.dateLabel} - ${day.label}` : day.label;
+}
+
+function parseISODate(value?: string) {
+  if (!value) return null;
+  const date = new Date(`${value}T00:00:00`);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function formatDateRange(startDate: string, endDate: string) {
+  const start = parseISODate(startDate);
+  const end = parseISODate(endDate);
+  if (!start || !end) return '';
+
+  const formatter = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  return `${formatter.format(start)} a ${formatter.format(end)}`;
+}
+
+function buildTripDaysFromRange(startDate: string, endDate: string): TripDay[] {
+  const start = parseISODate(startDate);
+  const end = parseISODate(endDate);
+  if (!start || !end || end < start) return [];
+
+  const days: TripDay[] = [];
+  const current = new Date(start);
+
+  while (current <= end && days.length < 14) {
+    days.push(formatDay(current));
+    current.setDate(current.getDate() + 1);
+  }
+
+  return days;
 }
 
 function buildTripDays(rawDates: string): TripDay[] {
@@ -121,6 +164,11 @@ function buildTripDays(rawDates: string): TripDay[] {
     label: `Dia ${index + 1} da viagem`,
     shortLabel: `Dia ${index + 1}`,
   }));
+}
+
+function buildTripDaysFromPlan(plan: PlannedTrip) {
+  const dateRangeDays = buildTripDaysFromRange(plan.startDate || '', plan.endDate || '');
+  return dateRangeDays.length > 0 ? dateRangeDays : buildTripDays(plan.dates);
 }
 
 function buildItemsFromPlan(plan: PlannedTrip, days: TripDay[]): TimelineItem[] {
@@ -211,6 +259,8 @@ function getPlanSignature(plan: PlannedTrip) {
     origin: plan.origin || '',
     destination: plan.destination,
     dates: plan.dates,
+    startDate: plan.startDate || '',
+    endDate: plan.endDate || '',
     budget: plan.budget,
     accommodation: plan.accommodation,
     tours: plan.tours,
@@ -253,7 +303,7 @@ function EditableItem({
           <div className="flex flex-col gap-1">
             <label className="text-xs text-gray-500">Dia</label>
             <select value={draft.dayId} onChange={(e) => setDraft({ ...draft, dayId: e.target.value })} className="rounded-[8px] border border-gray-200 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#5A67D8]">
-              {days.map((day) => <option key={day.id} value={day.id}>{day.label}</option>)}
+              {days.map((day) => <option key={day.id} value={day.id}>{formatDayForItem(day)}</option>)}
             </select>
           </div>
           <div className="flex flex-col gap-1">
@@ -292,6 +342,7 @@ export function Planejamento({ user }: { user: StoredUser | null }) {
   const [items, setItems] = useState<TimelineItem[]>([]);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [newItemDraft, setNewItemDraft] = useState<TimelineItem | null>(null);
   const [tripTitle, setTripTitle] = useState('');
   const [tripMeta, setTripMeta] = useState({
     origin: '',
@@ -302,6 +353,15 @@ export function Planejamento({ user }: { user: StoredUser | null }) {
   });
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState('');
+  const [editingBudget, setEditingBudget] = useState(false);
+  const [budgetDraft, setBudgetDraft] = useState('');
+  const [editingDates, setEditingDates] = useState(false);
+  const [startDateDraft, setStartDateDraft] = useState('');
+  const [endDateDraft, setEndDateDraft] = useState('');
+  const [datesDraft, setDatesDraft] = useState('');
+  const [editingAccommodation, setEditingAccommodation] = useState(false);
+  const [accommodationDraft, setAccommodationDraft] = useState('');
+  const [metaError, setMetaError] = useState('');
   const [paymentCompleted, setPaymentCompleted] = useState(false);
   const [checkoutLoginMessage, setCheckoutLoginMessage] = useState('');
 
@@ -311,13 +371,17 @@ export function Planejamento({ user }: { user: StoredUser | null }) {
 
     try {
       const plan = JSON.parse(stored) as PlannedTrip;
-      const plannedDays = buildTripDays(plan.dates);
+      const plannedDays = buildTripDaysFromPlan(plan);
       setHasTrip(true);
       setDays(plannedDays);
       setSelectedDay(plannedDays[0]?.id || 'day-1');
       setItems(buildItemsFromPlan(plan, plannedDays));
       setTripTitle(plan.title);
       setTitleDraft(plan.title);
+      setBudgetDraft(plan.budget);
+      setStartDateDraft(plan.startDate || '');
+      setEndDateDraft(plan.endDate || '');
+      setAccommodationDraft(plan.accommodation);
       setPaymentCompleted(isPlanPaid(plan));
       setTripMeta({
         origin: plan.origin || '',
@@ -360,17 +424,101 @@ export function Planejamento({ user }: { user: StoredUser | null }) {
   };
 
   const handleAddItem = () => {
+    const selectedDayInfo = days.find((day) => day.id === selectedDay);
     const newItem: TimelineItem = {
       id: nextId(),
       dayId: selectedDay,
       time: '12:00',
       icon: 'MapPinned',
       title: 'Novo item',
-      subtitle: 'Descrição do item',
+      subtitle: `Item planejado para ${formatDayForItem(selectedDayInfo)}`,
     };
+    setNewItemDraft(newItem);
+  };
+
+  const handleCreateItem = (newItem: TimelineItem) => {
     setItems((prev) => [...prev, newItem]);
     markTripChanged();
-    setEditingId(newItem.id);
+    setNewItemDraft(null);
+  };
+
+  const handleSaveBudget = () => {
+    const nextBudget = budgetDraft.trim();
+    if (!nextBudget) {
+      setMetaError('Informe um orçamento para salvar.');
+      return;
+    }
+
+    setTripMeta((prev) => ({ ...prev, budget: nextBudget }));
+    setBudgetDraft(nextBudget);
+    setEditingBudget(false);
+    setMetaError('');
+    markTripChanged({ budget: nextBudget });
+  };
+
+  const handleSaveAccommodation = () => {
+    const nextAccommodation = accommodationDraft.trim();
+    if (!nextAccommodation) {
+      setMetaError('Selecione uma hospedagem para salvar.');
+      return;
+    }
+
+    setTripMeta((prev) => ({ ...prev, accommodation: nextAccommodation }));
+    setAccommodationDraft(nextAccommodation);
+    setEditingAccommodation(false);
+    setMetaError('');
+    markTripChanged({ accommodation: nextAccommodation });
+  };
+
+  const handleSaveDates = () => {
+    if (!startDateDraft || !endDateDraft) {
+      setMetaError('Informe a data ou período da viagem.');
+      return;
+    }
+
+    const start = parseISODate(startDateDraft);
+    const end = parseISODate(endDateDraft);
+    if (!start || !end || end < start) {
+      setMetaError('A data final deve ser igual ou posterior a data inicial.');
+      return;
+    }
+
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (!stored) return;
+
+    try {
+      const plan = JSON.parse(stored) as PlannedTrip;
+      const nextDates = formatDateRange(startDateDraft, endDateDraft);
+      const updatedPlan = { ...plan, dates: nextDates, startDate: startDateDraft, endDate: endDateDraft, updatedAt: new Date().toISOString() };
+      const plannedDays = buildTripDaysFromRange(startDateDraft, endDateDraft);
+
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedPlan));
+      setTripMeta((prev) => ({ ...prev, dates: nextDates }));
+      setDays(plannedDays);
+      setSelectedDay(plannedDays[0]?.id || 'day-1');
+      setItems(buildItemsFromPlan(updatedPlan, plannedDays));
+      setEditingDates(false);
+      setEditingId(null);
+      setDeletingId(null);
+      setMetaError('');
+      setPaymentCompleted(false);
+    } catch {
+      localStorage.removeItem(STORAGE_KEY);
+      setHasTrip(false);
+    }
+  };
+
+  const openDatesModal = () => {
+    try {
+      const plan = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null') as PlannedTrip | null;
+      setStartDateDraft(plan?.startDate || '');
+      setEndDateDraft(plan?.endDate || '');
+    } catch {
+      setStartDateDraft('');
+      setEndDateDraft('');
+    }
+    setEditingDates(true);
+    setMetaError('');
   };
 
   const handleCheckoutClick = () => {
@@ -438,41 +586,72 @@ export function Planejamento({ user }: { user: StoredUser | null }) {
             </div>
 
             <div className="mb-3 grid grid-cols-1 sm:grid-cols-3 gap-2 shrink-0">
-              <div className="rounded-[12px] bg-white border border-gray-100 px-3 py-2 shadow-sm">
+              <div className="relative rounded-[12px] bg-white border border-gray-100 px-3 py-2 shadow-sm">
                 <div className="flex items-center gap-1.5 text-xs font-semibold text-[#5A67D8]">
                   <Wallet className="h-3.5 w-3.5" /> Orçamento
                 </div>
                 <p className="mt-1 text-xs text-gray-700 truncate">{tripMeta.budget}</p>
+                {false ? (
+                  <div className="mt-2 flex items-center gap-1.5">
+                    <input
+                      value={budgetDraft}
+                      onChange={(event) => setBudgetDraft(event.target.value)}
+                      className="min-w-0 flex-1 rounded-[8px] border border-gray-200 px-2 py-1.5 text-xs text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#5A67D8]"
+                      placeholder="Ex.: R$ 4.000"
+                      autoFocus
+                    />
+                    <button onClick={handleSaveBudget} className="rounded-full bg-[#5A67D8] p-1 text-white" aria-label="Salvar orçamento"><Check className="h-3 w-3" /></button>
+                    <button onClick={() => { setBudgetDraft(tripMeta.budget); setEditingBudget(false); setMetaError(''); }} className="rounded-full bg-gray-100 p-1 text-gray-600" aria-label="Cancelar edição de orçamento"><X className="h-3 w-3" /></button>
+                  </div>
+                ) : (
+                  <button onClick={() => { setBudgetDraft(tripMeta.budget); setEditingBudget(true); setMetaError(''); }} className="absolute right-3 top-2 rounded-full p-1 text-gray-500 hover:bg-gray-100 hover:text-[#5A67D8]" aria-label="Alterar orçamento">
+                    <Edit2 className="h-3.5 w-3.5" />
+                  </button>
+                )}
               </div>
-              <div className="rounded-[12px] bg-white border border-gray-100 px-3 py-2 shadow-sm">
+              <div className="relative rounded-[12px] bg-white border border-gray-100 px-3 py-2 shadow-sm">
                 <div className="flex items-center gap-1.5 text-xs font-semibold text-[#5A67D8]">
                   <Hotel className="h-3.5 w-3.5" /> Hospedagem
                 </div>
                 <p className="mt-1 text-xs text-gray-700 truncate">{tripMeta.accommodation}</p>
+                <button
+                  onClick={() => { setAccommodationDraft(tripMeta.accommodation); setEditingAccommodation(true); setMetaError(''); }}
+                  className="absolute right-3 top-2 rounded-full p-1 text-gray-500 hover:bg-gray-100 hover:text-[#5A67D8]"
+                  aria-label="Alterar hospedagem"
+                >
+                  <Edit2 className="h-3.5 w-3.5" />
+                </button>
               </div>
-              <div className="rounded-[12px] bg-white border border-gray-100 px-3 py-2 shadow-sm">
+              <div className="relative rounded-[12px] bg-white border border-gray-100 px-3 py-2 shadow-sm">
                 <div className="flex items-center gap-1.5 text-xs font-semibold text-[#5A67D8]">
-                  <CalendarDays className="h-3.5 w-3.5" /> Dias
+                  <CalendarDays className="h-3.5 w-3.5" /> Data
                 </div>
-                <p className="mt-1 text-xs text-gray-700 truncate">{days.length} dias preenchidos</p>
+                <p className="mt-1 text-xs text-gray-700 truncate">{tripMeta.dates} - {days.length} dias</p>
+                {false ? (
+                  <div className="mt-2 flex items-center gap-1.5">
+                    <input
+                      value={datesDraft}
+                      onChange={(event) => setDatesDraft(event.target.value)}
+                      className="min-w-0 flex-1 rounded-[8px] border border-gray-200 px-2 py-1.5 text-xs text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#5A67D8]"
+                      placeholder="Ex.: 10 a 15 de julho"
+                      autoFocus
+                    />
+                    <button onClick={handleSaveDates} className="rounded-full bg-[#5A67D8] p-1 text-white" aria-label="Salvar data"><Check className="h-3 w-3" /></button>
+                    <button onClick={() => { setDatesDraft(tripMeta.dates); setEditingDates(false); setMetaError(''); }} className="rounded-full bg-gray-100 p-1 text-gray-600" aria-label="Cancelar edição de data"><X className="h-3 w-3" /></button>
+                  </div>
+                ) : (
+                  <button onClick={openDatesModal} className="absolute right-3 top-2 rounded-full p-1 text-gray-500 hover:bg-gray-100 hover:text-[#5A67D8]" aria-label="Alterar data da viagem">
+                    <Edit2 className="h-3.5 w-3.5" />
+                  </button>
+                )}
               </div>
             </div>
 
-            <div className="mb-3 shrink-0 space-y-2">
-              <select
-                value={selectedDay}
-                onChange={(event) => {
-                  setSelectedDay(event.target.value);
-                  setEditingId(null);
-                  setDeletingId(null);
-                }}
-                className="w-full rounded-[12px] border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#5A67D8]"
-              >
-                {days.map((day) => (
-                  <option key={day.id} value={day.id}>{day.label}</option>
-                ))}
-              </select>
+            {metaError && (
+              <p className="-mt-2 mb-3 text-xs font-medium text-red-600">{metaError}</p>
+            )}
 
+            <div className="mb-3 shrink-0">
               <div className="flex gap-2 overflow-x-auto pb-1">
                 {days.map((day) => {
                   const total = items.filter((item) => item.dayId === day.id).length;
@@ -480,7 +659,11 @@ export function Planejamento({ user }: { user: StoredUser | null }) {
                   return (
                     <button
                       key={day.id}
-                      onClick={() => setSelectedDay(day.id)}
+                      onClick={() => {
+                        setSelectedDay(day.id);
+                        setEditingId(null);
+                        setDeletingId(null);
+                      }}
                       className={`shrink-0 rounded-[12px] border px-3 py-2 text-left transition-colors ${
                         active
                           ? 'bg-[#5A67D8] border-[#5A67D8] text-white'
@@ -574,6 +757,132 @@ export function Planejamento({ user }: { user: StoredUser | null }) {
                 </p>
               )}
             </div>
+
+            {newItemDraft && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/35 px-4">
+                <div className="w-full max-w-2xl">
+                  <div className="mb-3 flex items-center justify-between rounded-t-[18px] bg-white px-5 py-4 shadow-xl">
+                    <div>
+                      <h3 className="text-lg font-bold text-gray-900">Adicionar item</h3>
+                      <p className="mt-1 text-sm text-gray-500">Preencha os detalhes do novo item do roteiro.</p>
+                    </div>
+                    <button onClick={() => setNewItemDraft(null)} className="rounded-full bg-gray-100 p-1.5 text-gray-500 hover:bg-gray-200" aria-label="Fechar">
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                  <EditableItem
+                    item={newItemDraft}
+                    days={days}
+                    onSave={handleCreateItem}
+                    onCancel={() => setNewItemDraft(null)}
+                  />
+                </div>
+              </div>
+            )}
+
+            {editingBudget && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/35 px-4">
+                <div className="w-full max-w-sm rounded-[18px] border border-gray-100 bg-white p-5 shadow-xl">
+                  <div className="mb-4 flex items-start justify-between gap-3">
+                    <div>
+                      <h3 className="text-lg font-bold text-gray-900">Alterar orçamento</h3>
+                      <p className="mt-1 text-sm text-gray-500">Informe o novo orçamento da viagem.</p>
+                    </div>
+                    <button onClick={() => { setBudgetDraft(tripMeta.budget); setEditingBudget(false); setMetaError(''); }} className="rounded-full bg-gray-100 p-1.5 text-gray-500 hover:bg-gray-200" aria-label="Fechar">
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                  <label className="text-xs font-semibold text-gray-600">Orçamento</label>
+                  <input
+                    value={budgetDraft}
+                    onChange={(event) => setBudgetDraft(event.target.value)}
+                    className="mt-1 w-full rounded-[12px] border border-gray-200 bg-[#FDFBF7] px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#5A67D8]"
+                    placeholder="Ex.: R$ 4.000"
+                    autoFocus
+                  />
+                  {metaError && <p className="mt-2 text-xs font-medium text-red-600">{metaError}</p>}
+                  <div className="mt-5 flex justify-end gap-2">
+                    <button onClick={() => { setBudgetDraft(tripMeta.budget); setEditingBudget(false); setMetaError(''); }} className="rounded-[12px] bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-200">Cancelar</button>
+                    <button onClick={handleSaveBudget} className="rounded-[12px] bg-[#5A67D8] px-4 py-2 text-sm font-semibold text-white hover:bg-[#4C5BC7]">Salvar</button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {editingAccommodation && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/35 px-4">
+                <div className="w-full max-w-md rounded-[18px] border border-gray-100 bg-white p-5 shadow-xl">
+                  <div className="mb-4 flex items-start justify-between gap-3">
+                    <div>
+                      <h3 className="text-lg font-bold text-gray-900">Alterar hospedagem</h3>
+                      <p className="mt-1 text-sm text-gray-500">Escolha uma das hospedagens mais comuns.</p>
+                    </div>
+                    <button onClick={() => { setAccommodationDraft(tripMeta.accommodation); setEditingAccommodation(false); setMetaError(''); }} className="rounded-full bg-gray-100 p-1.5 text-gray-500 hover:bg-gray-200" aria-label="Fechar">
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                  <label className="text-xs font-semibold text-gray-600">Tipo de hospedagem</label>
+                  <select
+                    value={accommodationDraft}
+                    onChange={(event) => setAccommodationDraft(event.target.value)}
+                    className="mt-1 w-full rounded-[12px] border border-gray-200 bg-[#FDFBF7] px-3 py-2.5 text-sm font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#5A67D8]"
+                    autoFocus
+                  >
+                    <option value="">Selecione uma opção</option>
+                    {accommodationOptions.map((option) => (
+                      <option key={option} value={option}>{option}</option>
+                    ))}
+                  </select>
+                  {metaError && <p className="mt-2 text-xs font-medium text-red-600">{metaError}</p>}
+                  <div className="mt-5 flex justify-end gap-2">
+                    <button onClick={() => { setAccommodationDraft(tripMeta.accommodation); setEditingAccommodation(false); setMetaError(''); }} className="rounded-[12px] bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-200">Cancelar</button>
+                    <button onClick={handleSaveAccommodation} className="rounded-[12px] bg-[#5A67D8] px-4 py-2 text-sm font-semibold text-white hover:bg-[#4C5BC7]">Salvar</button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {editingDates && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/35 px-4">
+                <div className="w-full max-w-md rounded-[18px] border border-gray-100 bg-white p-5 shadow-xl">
+                  <div className="mb-4 flex items-start justify-between gap-3">
+                    <div>
+                      <h3 className="text-lg font-bold text-gray-900">Alterar data da viagem</h3>
+                      <p className="mt-1 text-sm text-gray-500">Selecione o início e o fim pelo calendário.</p>
+                    </div>
+                    <button onClick={() => { setEditingDates(false); setMetaError(''); }} className="rounded-full bg-gray-100 p-1.5 text-gray-500 hover:bg-gray-200" aria-label="Fechar">
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div>
+                      <label className="text-xs font-semibold text-gray-600">Data de início</label>
+                      <input
+                        type="date"
+                        value={startDateDraft}
+                        onChange={(event) => setStartDateDraft(event.target.value)}
+                        className="mt-1 w-full rounded-[12px] border border-gray-200 bg-[#FDFBF7] px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#5A67D8]"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-gray-600">Data de fim</label>
+                      <input
+                        type="date"
+                        value={endDateDraft}
+                        min={startDateDraft || undefined}
+                        onChange={(event) => setEndDateDraft(event.target.value)}
+                        className="mt-1 w-full rounded-[12px] border border-gray-200 bg-[#FDFBF7] px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#5A67D8]"
+                      />
+                    </div>
+                  </div>
+                  {metaError && <p className="mt-2 text-xs font-medium text-red-600">{metaError}</p>}
+                  <div className="mt-5 flex justify-end gap-2">
+                    <button onClick={() => { setEditingDates(false); setMetaError(''); }} className="rounded-[12px] bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-200">Cancelar</button>
+                    <button onClick={handleSaveDates} className="rounded-[12px] bg-[#5A67D8] px-4 py-2 text-sm font-semibold text-white hover:bg-[#4C5BC7]">Salvar</button>
+                  </div>
+                </div>
+              </div>
+            )}
 
           </>
         )}

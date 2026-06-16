@@ -7,6 +7,8 @@ interface PlannedTrip {
   origin?: string;
   destination: string;
   dates: string;
+  startDate?: string;
+  endDate?: string;
   budget: string;
   accommodation: string;
   tours: string[];
@@ -49,6 +51,8 @@ function getPlanSignature(plan: PlannedTrip) {
     origin: plan.origin || '',
     destination: plan.destination,
     dates: plan.dates,
+    startDate: plan.startDate || '',
+    endDate: plan.endDate || '',
     budget: plan.budget,
     accommodation: plan.accommodation,
     tours: plan.tours,

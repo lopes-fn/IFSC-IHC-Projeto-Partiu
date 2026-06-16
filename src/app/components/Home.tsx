@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Bot,
@@ -22,7 +22,8 @@ interface ChatMessage {
 interface TripAnswers {
   origin: string;
   destination: string;
-  dates: string;
+  startDate: string;
+  endDate: string;
   budget: string;
   accommodation: string;
   tours: string;
@@ -32,6 +33,8 @@ interface DestinationSuggestion {
   name: string;
   price: string;
   dates: string;
+  startDate: string;
+  endDate: string;
   accommodation: string;
   tours: string[];
   img: string;
@@ -39,6 +42,22 @@ interface DestinationSuggestion {
 }
 
 const STORAGE_KEY = 'partiu-trip-plan';
+
+const monthNames: Record<string, number> = {
+  janeiro: 0,
+  fevereiro: 1,
+  marco: 2,
+  março: 2,
+  abril: 3,
+  maio: 4,
+  junho: 5,
+  julho: 6,
+  agosto: 7,
+  setembro: 8,
+  outubro: 9,
+  novembro: 10,
+  dezembro: 11,
+};
 
 const questions: { key: keyof TripAnswers; text: string; helper: string }[] = [
   {
@@ -52,9 +71,14 @@ const questions: { key: keyof TripAnswers; text: string; helper: string }[] = [
     helper: 'Cidade, região ou país',
   },
   {
-    key: 'dates',
-    text: 'Quais datas ou período você tem em mente?',
-    helper: 'Ex.: 10 a 14 de junho ou 5 dias em julho',
+    key: 'startDate',
+    text: 'Qual e a data inicial da viagem?',
+    helper: 'Ex.: 10/07/2026 ou 10 de julho',
+  },
+  {
+    key: 'endDate',
+    text: 'Qual e a data final da viagem?',
+    helper: 'Ex.: 15/07/2026 ou 15 de julho',
   },
   {
     key: 'budget',
@@ -77,7 +101,9 @@ const destinations: DestinationSuggestion[] = [
   {
     name: 'Florianópolis',
     price: 'R$ 1.840',
-    dates: '10 a 14 de junho',
+    dates: '10/07/2026 a 14/07/2026',
+    startDate: '2026-07-10',
+    endDate: '2026-07-14',
     accommodation: 'Hotel Majestic Beira-Mar',
     tours: ['Lagoa da Conceição', 'Praia Mole', 'Centro Histórico', 'Jantar no Ribeirão da Ilha', 'Santo Antônio de Lisboa'],
     img: 'https://images.unsplash.com/photo-1626568939752-a9359ca59df9?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=800',
@@ -86,7 +112,9 @@ const destinations: DestinationSuggestion[] = [
   {
     name: 'Lisboa',
     price: 'R$ 4.290',
-    dates: '5 dias em setembro',
+    dates: '05/09/2026 a 09/09/2026',
+    startDate: '2026-09-05',
+    endDate: '2026-09-09',
     accommodation: 'Hotel histórico no Chiado',
     tours: ['Torre de Belém', 'Mosteiro dos Jerónimos', 'Alfama', 'Jantar com fado', 'Bate-volta para Sintra'],
     img: 'https://images.unsplash.com/photo-1525207934214-58e69a8f8a3e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=800',
@@ -95,7 +123,9 @@ const destinations: DestinationSuggestion[] = [
   {
     name: 'Bariloche',
     price: 'R$ 3.560',
-    dates: '7 dias em agosto',
+    dates: '10/08/2026 a 16/08/2026',
+    startDate: '2026-08-10',
+    endDate: '2026-08-16',
     accommodation: 'Lodge de montanha com vista para o lago',
     tours: ['Cerro Catedral', 'Circuito Chico', 'Lago Nahuel Huapi', 'Jantar em chocolateria', 'Cerro Campanário'],
     img: 'https://images.unsplash.com/photo-1577801599718-f4e3ad3fc794?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=800',
@@ -143,7 +173,9 @@ function buildTripPlan(answers: TripAnswers) {
     title: `Viagem para ${answers.destination}`,
     origin: answers.origin,
     destination: answers.destination,
-    dates: answers.dates,
+    dates: formatDateRange(answers.startDate, answers.endDate),
+    startDate: answers.startDate,
+    endDate: answers.endDate,
     budget: answers.budget,
     accommodation: answers.accommodation,
     tours: tours.length ? tours : [answers.tours],
@@ -156,7 +188,9 @@ function buildSuggestedTripPlan(destination: DestinationSuggestion) {
     title: `Viagem para ${destination.name}`,
     origin: '',
     destination: destination.name,
-    dates: destination.dates,
+    dates: formatDateRange(destination.startDate, destination.endDate),
+    startDate: destination.startDate,
+    endDate: destination.endDate,
     budget: destination.price,
     accommodation: destination.accommodation,
     tours: destination.tours,
@@ -176,6 +210,66 @@ function normalizeDestination(value: string) {
     .replace(/[^a-z0-9\s]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+function toISODate(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function normalizeDateText(value: string) {
+  return value
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim();
+}
+
+function parseDateValue(value: string, fallbackMonth?: number) {
+  const normalized = normalizeDateText(value);
+  const currentYear = new Date().getFullYear();
+  const isoMatch = normalized.match(/\b(\d{4})-(\d{2})-(\d{2})\b/);
+  if (isoMatch) return isoMatch[0];
+
+  const slashMatch = normalized.match(/\b(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?\b/);
+  if (slashMatch) {
+    const day = Number(slashMatch[1]);
+    const month = Number(slashMatch[2]) - 1;
+    const year = slashMatch[3] ? Number(slashMatch[3].length === 2 ? `20${slashMatch[3]}` : slashMatch[3]) : currentYear;
+    const date = new Date(year, month, day);
+    return Number.isNaN(date.getTime()) ? null : toISODate(date);
+  }
+
+  const textMatch = normalized.match(/\b(\d{1,2})(?:\s+de)?\s+([a-z]+)?\b/);
+  if (textMatch) {
+    const day = Number(textMatch[1]);
+    const month = textMatch[2] ? monthNames[textMatch[2]] : fallbackMonth;
+    if (month === undefined) return null;
+    const date = new Date(currentYear, month, day);
+    return Number.isNaN(date.getTime()) ? null : toISODate(date);
+  }
+
+  return null;
+}
+
+function formatDateRange(startDate: string, endDate: string) {
+  const start = new Date(`${startDate}T00:00:00`);
+  const end = new Date(`${endDate}T00:00:00`);
+  const formatter = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  return `${formatter.format(start)} a ${formatter.format(end)}`;
+}
+
+function extractDateRange(value: string) {
+  const normalized = normalizeDateText(value);
+  const rangeMatch = normalized.match(/\b(\d{1,2})(?:\/(\d{1,2}))?(?:\s*(?:a|ate|-)\s*)(\d{1,2})(?:\/(\d{1,2}))?(?:\s+de\s+([a-z]+))?/);
+  if (!rangeMatch) return null;
+
+  const month = rangeMatch[5] ? monthNames[rangeMatch[5]] : rangeMatch[2] ? Number(rangeMatch[2]) - 1 : undefined;
+  const start = parseDateValue(rangeMatch[2] ? `${rangeMatch[1]}/${rangeMatch[2]}` : rangeMatch[1], month);
+  const end = parseDateValue(rangeMatch[4] ? `${rangeMatch[3]}/${rangeMatch[4]}` : rangeMatch[3], month);
+  return start && end ? { startDate: start, endDate: end } : null;
 }
 
 function getCountryNames() {
@@ -259,11 +353,9 @@ function validateAnswer(key: keyof TripAnswers, value: string) {
       return 'Não reconheci esse local. Informe uma cidade, estado ou país existente. Ex.: Florianópolis, Santa Catarina, Brasil ou Portugal.';
     }
   }
-
-  if (key === 'dates') {
-    const hasDateClue = /\d/.test(normalized) || /dia|dias|semana|fim de semana|janeiro|fevereiro|março|marco|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro/i.test(normalized);
-    if (!hasDateClue) {
-      return 'Informe uma data, período ou duração. Ex.: 10 a 14 de junho, 5 dias em julho ou fim de semana.';
+  if (key === 'startDate' || key === 'endDate') {
+    if (!parseDateValue(normalized)) {
+      return 'Informe uma data valida. Ex.: 10/07/2026 ou 10 de julho.';
     }
   }
 
@@ -296,10 +388,15 @@ function extractTripDetails(message: string): Partial<TripAnswers> {
   if (destinationMatch?.[1]) {
     extracted.destination = destinationMatch[1].trim();
   }
-
-  const dateMatch = text.match(/(\d{1,2}\s*(?:a|até|-)\s*\d{1,2}(?:\s+de\s+[A-ZÀ-Ýa-zà-ÿ]+)?|\d{1,2}\s+dias?(?:\s+em\s+[A-ZÀ-Ýa-zà-ÿ]+)?|fim de semana|feriado|janeiro|fevereiro|março|marco|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)/i);
-  if (dateMatch?.[1]) {
-    extracted.dates = dateMatch[1].trim();
+  const dateRange = extractDateRange(text);
+  if (dateRange) {
+    extracted.startDate = dateRange.startDate;
+    extracted.endDate = dateRange.endDate;
+  } else {
+    const dateMatch = text.match(/(\d{4}-\d{2}-\d{2}|\d{1,2}\/\d{1,2}(?:\/\d{2,4})?|\d{1,2}\s+de\s+[\p{L}\s]+)/iu);
+    if (dateMatch?.[1]) {
+      extracted.startDate = parseDateValue(dateMatch[1]) || undefined;
+    }
   }
 
   const budgetMatch = text.match(/(?:r\$\s*)?\d[\d.\s]*(?:,\d{2})?\s*(?:mil|reais)?(?:\s*(?:total|por pessoa|cada|pessoa))?/i);
@@ -344,12 +441,17 @@ export function Home() {
     {
       id: 1,
       from: 'bot',
-      text: 'Comece por aqui seu planejamento: descreva sua viagem ideal. Se puder, inclua origem, destino, período, orçamento, hospedagem e passeios; eu completo perguntando só o que faltar.',
+      text: 'Vamos planejar sua viagem?',
     },
   ]);
 
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const activeQuestion = questions[step];
   const progress = Math.round((Object.keys(answers).length / questions.length) * 100);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  }, [messages]);
 
   const pushMessage = (from: ChatMessage['from'], text: string) => {
     setMessages((current) => [...current, { id: Date.now() + current.length, from, text }]);
@@ -397,11 +499,23 @@ export function Home() {
       return;
     }
 
+    const parsedDate =
+      currentQuestion.key === 'startDate' || currentQuestion.key === 'endDate'
+        ? parseDateValue(value)
+        : null;
+
+    if (currentQuestion.key === 'endDate' && parsedDate && answers.startDate && parsedDate < answers.startDate) {
+      pushMessage('bot', 'A data final precisa ser igual ou posterior a data inicial.');
+      return;
+    }
+
     const storedValue =
       currentQuestion.key === 'budget'
         ? parseBudgetValue(value) || value
         : currentQuestion.key === 'accommodation'
           ? parseAccommodationType(value) || value
+          : currentQuestion.key === 'startDate' || currentQuestion.key === 'endDate'
+            ? parsedDate || value
           : value;
     const nextAnswers = { ...answers, [currentQuestion.key]: storedValue };
     setAnswers(nextAnswers);
@@ -433,33 +547,33 @@ export function Home() {
       {
         id: 1,
         from: 'bot',
-        text: 'Comece por aqui seu planejamento: descreva sua viagem ideal. Se puder, inclua origem, destino, período, orçamento, hospedagem e passeios; eu completo perguntando só o que faltar.',
+        text: 'Vamos planejar sua viagem?',
       },
     ]);
   };
 
   return (
-    <div className="h-full flex flex-col overflow-hidden">
-      <div className="flex-1 flex flex-col overflow-hidden container mx-auto px-4 sm:px-6 py-4 sm:py-6">
+    <div className="h-full overflow-y-auto">
+      <div className="container mx-auto flex min-h-full flex-col px-4 py-4 sm:px-6 sm:py-6">
         <div className="mb-3 shrink-0">
-          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 leading-tight">
+          <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 leading-tight">
             Tudo da viagem num só lugar. <span className="text-[#5A67D8]">Sem retrabalho, sem abas.</span>
           </h1>
-          <p className="text-sm sm:text-base text-gray-500 mt-1">
+          <p className="text-base text-gray-500 mt-1">
             Planeje, reserve e organize sua viagem completa em um único ambiente.
           </p>
         </div>
 
         <div className="mb-3 shrink-0">
-          <div className="rounded-[20px] bg-gradient-to-br from-[#5A67D8] to-[#7C3AED] p-5 sm:p-7 text-white shadow-xl ring-1 ring-[#5A67D8]/20">
-            <div className="mb-4 flex items-start justify-between gap-3">
-              <div className="flex items-start gap-3">
+          <div className="flex max-h-[70vh] flex-col overflow-hidden rounded-[20px] bg-gradient-to-br from-[#5A67D8] to-[#7C3AED] p-4 text-white shadow-xl ring-1 ring-[#5A67D8]/20 sm:p-5">
+            <div className="mb-3 flex shrink-0 items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] bg-white/18">
                   <Sparkles className="h-5 w-5" />
                 </div>
-                <div>
-                  <span className="block font-bold text-lg sm:text-xl">Assistente de roteiro</span>
-                  <p className="mt-0.5 text-sm text-white/75">Monte uma viagem completa respondendo poucas perguntas.</p>
+                <div className="leading-tight">
+                  <span className="block text-base font-bold">Assistente de roteiro</span>
+                  <p className="text-sm text-white/75">Monte uma viagem respondendo poucas perguntas.</p>
                 </div>
               </div>
               {chatStarted && (
@@ -469,13 +583,13 @@ export function Home() {
               )}
             </div>
 
-            <div className="mb-4 max-h-56 overflow-y-auto rounded-[16px] bg-white/10 p-3 space-y-2 border border-white/15">
+            <div className="mb-3 min-h-[52px] flex-1 overflow-y-auto rounded-[16px] bg-white/10 p-2.5 space-y-2 border border-white/15 scroll-smooth">
               {messages.map((message) => {
                 const Icon = message.from === 'bot' ? Bot : User;
                 return (
                   <div
                     key={message.id}
-                    className={`flex items-start gap-2 ${message.from === 'user' ? 'justify-end' : 'justify-start'}`}
+                    className={`flex items-center gap-2 ${message.from === 'user' ? 'justify-end' : 'justify-start'}`}
                   >
                     {message.from === 'bot' && (
                       <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/20">
@@ -483,9 +597,9 @@ export function Home() {
                       </span>
                     )}
                     <div
-                      className={`max-w-[82%] rounded-[14px] px-3 py-2 text-sm ${
+                      className={`max-w-[82%] rounded-[14px] px-3 py-1.5 text-base leading-6 ${
                         message.from === 'user'
-                          ? 'bg-white text-[#5A67D8] font-medium'
+                          ? 'bg-white text-[#5A67D8] font-normal'
                           : 'bg-white/15 text-white'
                       }`}
                     >
@@ -494,10 +608,11 @@ export function Home() {
                   </div>
                 );
               })}
+              <div ref={messagesEndRef} className="h-0 !mt-0" />
             </div>
 
             {chatStarted && activeQuestion && (
-              <div className="mb-3 grid grid-cols-2 lg:grid-cols-6 gap-2">
+              <div className="mb-3 grid max-h-24 shrink-0 grid-cols-2 gap-2 overflow-y-auto lg:grid-cols-6">
                 {questions.map((question, index) => {
                   const completed = Boolean(answers[question.key]);
                   return (
@@ -521,53 +636,61 @@ export function Home() {
               </div>
             )}
 
-            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
-              <input
-                type="text"
-                value={input}
-                onChange={(event) => setInput(event.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder={chatStarted && activeQuestion ? activeQuestion.helper : 'Ex.: Saindo de Florianópolis para Lisboa por 5 dias com R$ 4000...'}
-                className="flex-1 rounded-[14px] bg-white/20 backdrop-blur-sm px-4 py-3.5 text-white placeholder:text-white/70 border border-white/30 focus:outline-none focus:ring-2 focus:ring-white/50 text-sm"
-              />
-              <button
-                onClick={handleSubmit}
-                disabled={!input.trim()}
-                className="rounded-[14px] bg-white px-6 py-3.5 font-semibold text-[#5A67D8] hover:bg-white/90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm"
-              >
-                <Send className="h-4 w-4" />
-                Enviar
-              </button>
+            <div className="shrink-0 rounded-[16px] border border-white/80 bg-white p-2.5 shadow-lg shadow-[#2D2A6E]/12">
+              <label htmlFor="trip-chat-input" className="mb-2 block px-1 text-xs font-bold uppercase tracking-wide text-[#5A67D8]">
+                Digite sua resposta
+              </label>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <input
+                  id="trip-chat-input"
+                  type="text"
+                  value={input}
+                  onChange={(event) => setInput(event.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder={chatStarted && activeQuestion ? activeQuestion.helper : 'Ex.: Saindo de Florianópolis para Lisboa de 10 a 15 de julho com R$ 4000...'}
+                  className="min-h-12 flex-1 rounded-[12px] border border-[#5A67D8]/25 bg-[#FDFBF7] px-4 py-3 text-sm font-medium text-gray-900 placeholder:text-gray-400 focus:border-[#5A67D8] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#5A67D8]/20"
+                />
+                <button
+                  onClick={handleSubmit}
+                  disabled={!input.trim()}
+                  className="min-h-12 rounded-[12px] bg-[#5A67D8] px-6 py-3 font-semibold text-white hover:bg-[#4C5BC7] transition-colors disabled:opacity-55 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm shadow-sm"
+                >
+                  <Send className="h-4 w-4" />
+                  Enviar
+                </button>
+              </div>
             </div>
 
             {chatStarted && (
-              <button onClick={resetChat} className="mt-3 text-xs font-medium text-white/75 hover:text-white">
+              <button onClick={resetChat} className="mt-3 shrink-0 text-xs font-medium text-white/75 hover:text-white">
                 Reiniciar conversa
               </button>
             )}
           </div>
         </div>
 
-        <div className="flex-1 overflow-hidden">
+        <div className="pb-4">
           {chatStarted ? (
-            <div className="h-full grid grid-cols-1 lg:grid-cols-3 gap-3 overflow-hidden">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
               <div className="rounded-[16px] bg-white border border-gray-100 p-4 shadow-sm overflow-hidden">
                 <div className="flex items-center gap-2 mb-3 text-[#5A67D8]">
                   <MapPin className="h-4 w-4" />
-                  <h2 className="font-bold text-gray-900">Origem, destino e período</h2>
+                  <h2 className="text-base font-bold text-gray-900">Origem, destino e datas</h2>
                 </div>
-                <p className="text-sm text-gray-700">
+                <p className="text-base leading-6 text-gray-700">
                   {answers.origin || 'Aguardando origem'} - {answers.destination || 'aguardando destino'}
                 </p>
-                <p className="mt-2 text-xs text-gray-500">{answers.dates || 'As datas entram aqui assim que você responder.'}</p>
+                <p className="mt-2 text-xs text-gray-500">
+                  {answers.startDate && answers.endDate ? formatDateRange(answers.startDate, answers.endDate) : 'As datas entram aqui assim que voce responder.'}
+                </p>
               </div>
 
               <div className="rounded-[16px] bg-white border border-gray-100 p-4 shadow-sm overflow-hidden">
                 <div className="flex items-center gap-2 mb-3 text-[#5A67D8]">
                   <Wallet className="h-4 w-4" />
-                  <h2 className="font-bold text-gray-900">Orçamento e hospedagem</h2>
+                  <h2 className="text-base font-bold text-gray-900">Orçamento e hospedagem</h2>
                 </div>
-                <p className="text-sm text-gray-700">{answers.budget || 'Orçamento ainda não informado'}</p>
+                <p className="text-base leading-6 text-gray-700">{answers.budget || 'Orçamento ainda não informado'}</p>
                 <div className="mt-2 flex items-center gap-1.5 text-xs text-gray-500">
                   <Hotel className="h-3.5 w-3.5" />
                   {answers.accommodation || 'Preferência de hospedagem pendente'}
@@ -577,43 +700,43 @@ export function Home() {
               <div className="rounded-[16px] bg-white border border-gray-100 p-4 shadow-sm overflow-hidden">
                 <div className="flex items-center gap-2 mb-3 text-[#5A67D8]">
                   <Calendar className="h-4 w-4" />
-                  <h2 className="font-bold text-gray-900">Passeios</h2>
+                  <h2 className="text-base font-bold text-gray-900">Passeios</h2>
                 </div>
-                <p className="text-sm text-gray-700 line-clamp-4">
+                <p className="text-base leading-6 text-gray-700 line-clamp-4">
                   {answers.tours || 'As experiências escolhidas serão separadas no roteiro.'}
                 </p>
               </div>
             </div>
           ) : (
-            <div className="h-full flex flex-col">
+            <div className="flex flex-col">
               <div className="mb-2 flex items-center justify-between shrink-0">
-                <h2 className="font-bold text-gray-900">Sugestões prontas</h2>
+                <h2 className="text-base font-bold text-gray-900">Sugestões prontas</h2>
                 <span className="text-xs text-gray-400">Clique para gerar roteiro</span>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 overflow-y-auto pr-1">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pr-1">
                 {destinations.map((dest) => (
                   <button
                     key={dest.name}
                     onClick={() => openSuggestedTrip(dest)}
                     className="group rounded-[16px] bg-white shadow-sm border border-gray-100 overflow-hidden hover:shadow-md hover:border-[#5A67D8]/30 transition-all text-left"
                   >
-                    <div className="flex h-full min-h-[118px]">
-                      <div className="relative w-28 shrink-0 overflow-hidden">
-                        <img src={dest.img} alt={dest.name} className="h-full w-full object-cover transition-transform group-hover:scale-105" />
-                        <div className="absolute inset-0 bg-black/10" />
+                    <div className="flex h-full min-h-[150px] md:min-h-[172px]">
+                      <div className="relative w-36 shrink-0 overflow-hidden">
+                        <img src={dest.img} alt={dest.name} className="h-full w-full object-cover brightness-105 saturate-110 transition-transform duration-300 group-hover:scale-110" />
+                        <div className="absolute inset-0 bg-gradient-to-r from-black/5 to-transparent" />
                       </div>
-                      <div className="flex min-w-0 flex-1 flex-col justify-between p-3">
+                      <div className="flex min-w-0 flex-1 flex-col justify-between p-4">
                         <div>
                           <div className="flex items-start justify-between gap-2">
                             <div className="min-w-0">
-                              <h3 className="truncate font-semibold text-gray-900">{dest.name}</h3>
+                              <h3 className="truncate text-base font-semibold text-gray-900">{dest.name}</h3>
                               <p className="mt-0.5 text-xs text-gray-500">{dest.tag}</p>
                             </div>
                             <ChevronRight className="h-4 w-4 shrink-0 text-gray-300 transition-colors group-hover:text-[#5A67D8]" />
                           </div>
                           <div className="mt-2 flex items-center gap-1 text-xs text-gray-500">
                             <Calendar className="h-3.5 w-3.5 text-[#5A67D8]" />
-                            {dest.dates}
+                            {formatDateRange(dest.startDate, dest.endDate)}
                           </div>
                         </div>
                         <div className="mt-2 flex items-center justify-between gap-2">
