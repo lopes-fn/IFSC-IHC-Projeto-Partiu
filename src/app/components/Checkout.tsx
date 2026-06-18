@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import { Calendar, Check, CreditCard, MapPin, Shield, Wallet } from 'lucide-react';
 
 interface PlannedTrip {
@@ -18,6 +18,7 @@ interface PlannedTrip {
 
 const STORAGE_KEY = 'partiu-trip-plan';
 const PAYMENT_KEY = 'partiu-paid-trip';
+const COMPLETED_TRIPS_KEY = 'partiu-completed-trips';
 
 interface PaymentForm {
   cardNumber: string;
@@ -33,6 +34,11 @@ interface PaidTrip {
   signature: string;
   paidAt: string;
   insuranceSelected?: boolean;
+}
+
+interface CompletedTrip extends PaidTrip {
+  total: number;
+  plan: PlannedTrip;
 }
 
 function parseCurrency(value: string) {
@@ -67,6 +73,20 @@ function getPaidTrip() {
   } catch {
     localStorage.removeItem(PAYMENT_KEY);
     return null;
+  }
+}
+
+function saveCompletedTrip(trip: CompletedTrip) {
+  try {
+    const completedTrips = JSON.parse(localStorage.getItem(COMPLETED_TRIPS_KEY) || '[]') as CompletedTrip[];
+    const nextTrips = [
+      trip,
+      ...completedTrips.filter((item) => item.signature !== trip.signature),
+    ];
+
+    localStorage.setItem(COMPLETED_TRIPS_KEY, JSON.stringify(nextTrips));
+  } catch {
+    localStorage.setItem(COMPLETED_TRIPS_KEY, JSON.stringify([trip]));
   }
 }
 
@@ -199,7 +219,18 @@ export function Checkout() {
     setPaymentSuccess(valid);
 
     if (valid) {
-      localStorage.setItem(PAYMENT_KEY, JSON.stringify({ signature: getPlanSignature(plan), paidAt: new Date().toISOString(), insuranceSelected }));
+      const paidTrip = {
+        signature: getPlanSignature(plan),
+        paidAt: new Date().toISOString(),
+        insuranceSelected,
+      };
+
+      localStorage.setItem(PAYMENT_KEY, JSON.stringify(paidTrip));
+      saveCompletedTrip({
+        ...paidTrip,
+        total: totals.total,
+        plan,
+      });
       setIsPaid(true);
     }
   };
@@ -213,8 +244,8 @@ export function Checkout() {
   }
 
   return (
-    <div className="h-full flex flex-col overflow-hidden">
-      <div className="flex-1 flex flex-col overflow-hidden container mx-auto px-4 sm:px-6 py-4 sm:py-6">
+    <div className="min-h-full flex flex-col lg:h-full lg:overflow-hidden">
+      <div className="flex-1 flex flex-col container mx-auto px-4 sm:px-6 py-4 sm:py-6 lg:min-h-0 lg:overflow-hidden">
         <div className="mb-4 shrink-0">
           <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Finalizar pagamento</h1>
           <div className="mt-2 flex flex-wrap gap-2 text-xs text-gray-500">
@@ -227,9 +258,9 @@ export function Checkout() {
           </div>
         </div>
 
-        <div className="flex-1 overflow-hidden grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <div className="overflow-y-auto">
-            <div className="rounded-[16px] bg-white border border-gray-100 p-4 shadow-sm h-full flex flex-col">
+        <div className="grid grid-cols-1 gap-4 lg:min-h-0 lg:flex-1 lg:grid-cols-3 lg:overflow-hidden">
+          <div className="lg:overflow-y-auto">
+            <div className="rounded-[16px] bg-white border border-gray-100 p-4 shadow-sm lg:h-full lg:flex lg:flex-col">
               <div className="flex items-start gap-3 mb-4">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] bg-[#5A67D8]/10">
                   <Shield className="h-5 w-5 text-[#5A67D8]" />
@@ -265,7 +296,7 @@ export function Checkout() {
             </div>
           </div>
 
-          <div className="overflow-y-auto">
+          <div className="lg:overflow-y-auto">
             <div className="rounded-[16px] bg-white border border-gray-100 p-4 shadow-sm">
               <div className="mb-4 flex items-center gap-2 rounded-[10px] bg-[#5A67D8]/10 px-3 py-1.5 w-fit">
                 <CreditCard className="h-3.5 w-3.5 text-[#5A67D8]" />
@@ -273,9 +304,12 @@ export function Checkout() {
               </div>
               <form onSubmit={handlePaymentSubmit} className="space-y-3" noValidate>
                 {isPaid && (
-                  <p className="rounded-[10px] bg-green-50 px-3 py-2 text-xs font-medium text-green-700">
+                  <div className="rounded-[10px] bg-green-50 px-3 py-2 text-xs font-medium text-green-700">
                     Esta viagem já está paga. Para editar o pagamento, altere o roteiro da viagem.
-                  </p>
+                    <Link to="/roteiros" className="mt-1 inline-block font-bold text-green-800 hover:underline">
+                      Ver roteiros finalizados
+                    </Link>
+                  </div>
                 )}
                 <div>
                   <label className="mb-1 block text-xs font-medium text-gray-700">Número do cartão</label>
@@ -360,7 +394,7 @@ export function Checkout() {
             </div>
           </div>
 
-          <div className="overflow-y-auto">
+          <div className="lg:overflow-y-auto">
             <div className="rounded-[16px] bg-white border border-gray-100 p-4 shadow-sm">
               <h3 className="mb-4 font-semibold text-gray-900 text-sm">Resumo do pedido</h3>
               <div className="mb-4 rounded-[12px] bg-gray-50 border border-gray-100 p-3">

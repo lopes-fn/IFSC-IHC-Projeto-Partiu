@@ -4,6 +4,7 @@ import { Home } from './components/Home';
 import { Planejamento } from './components/Planejamento';
 import { Checkout } from './components/Checkout';
 import { Suporte } from './components/Suporte';
+import { RoteirosFinalizados } from './components/RoteirosFinalizados';
 import { Login, Cadastro, clearStoredUser, getStoredUser, type StoredUser } from './components/Auth';
 import { useState } from 'react';
 
@@ -16,13 +17,14 @@ export default function App() {
 
   return (
     <HashRouter>
-      <div className="h-screen flex flex-col overflow-hidden bg-[#FDFBF7]">
+      <div className="min-h-dvh flex flex-col bg-[#FDFBF7]">
         <Header user={user} onLogout={handleLogout} />
-        <main className="flex-1 overflow-hidden">
+        <main className="flex-1 min-h-0">
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/planejamento" element={<Planejamento user={user} />} />
           <Route path="/checkout" element={user ? <Checkout /> : <Navigate to="/login" state={{ from: '/checkout' }} replace />} />
+          <Route path="/roteiros" element={user ? <RoteirosFinalizados /> : <Navigate to="/login" state={{ from: '/roteiros' }} replace />} />
           <Route path="/suporte" element={user ? <Suporte /> : <Navigate to="/login" state={{ from: '/suporte' }} replace />} />
           <Route path="/login" element={<Login onAuth={setUser} />} />
           <Route path="/cadastro" element={<Cadastro onAuth={setUser} />} />

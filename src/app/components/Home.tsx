@@ -553,10 +553,10 @@ export function Home() {
   };
 
   return (
-    <div className="h-full overflow-y-auto">
+    <div className="min-h-full overflow-y-auto">
       <div className="container mx-auto flex min-h-full flex-col px-4 py-4 sm:px-6 sm:py-6">
         <div className="mb-3 shrink-0">
-          <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 leading-tight">
+          <h1 className="text-2xl sm:text-4xl font-bold text-gray-900 leading-tight">
             Tudo da viagem num só lugar. <span className="text-[#5A67D8]">Sem retrabalho, sem abas.</span>
           </h1>
           <p className="text-base text-gray-500 mt-1">
@@ -565,7 +565,7 @@ export function Home() {
         </div>
 
         <div className="mb-3 shrink-0">
-          <div className="flex max-h-[70vh] flex-col overflow-hidden rounded-[20px] bg-gradient-to-br from-[#5A67D8] to-[#7C3AED] p-4 text-white shadow-xl ring-1 ring-[#5A67D8]/20 sm:p-5">
+          <div className="flex max-h-none flex-col overflow-hidden rounded-[20px] bg-gradient-to-br from-[#5A67D8] to-[#7C3AED] p-4 text-white shadow-xl ring-1 ring-[#5A67D8]/20 sm:max-h-[70vh] sm:p-5">
             <div className="mb-3 flex shrink-0 items-center justify-between gap-3">
               <div className="flex items-center gap-3">
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] bg-white/18">
@@ -583,7 +583,7 @@ export function Home() {
               )}
             </div>
 
-            <div className="mb-3 min-h-[52px] flex-1 overflow-y-auto rounded-[16px] bg-white/10 p-2.5 space-y-2 border border-white/15 scroll-smooth">
+            <div className="mb-3 max-h-[42dvh] min-h-[120px] flex-1 overflow-y-auto rounded-[16px] bg-white/10 p-2.5 space-y-2 border border-white/15 scroll-smooth sm:max-h-none">
               {messages.map((message) => {
                 const Icon = message.from === 'bot' ? Bot : User;
                 return (
@@ -702,7 +702,7 @@ export function Home() {
                   <Calendar className="h-4 w-4" />
                   <h2 className="text-base font-bold text-gray-900">Passeios</h2>
                 </div>
-                <p className="text-base leading-6 text-gray-700 line-clamp-4">
+                <p className="text-base leading-6 text-gray-700 line-clamp-4 sm:line-clamp-3">
                   {answers.tours || 'As experiências escolhidas serão separadas no roteiro.'}
                 </p>
               </div>
@@ -721,7 +721,7 @@ export function Home() {
                     className="group rounded-[16px] bg-white shadow-sm border border-gray-100 overflow-hidden hover:shadow-md hover:border-[#5A67D8]/30 transition-all text-left"
                   >
                     <div className="flex h-full min-h-[150px] md:min-h-[172px]">
-                      <div className="relative w-36 shrink-0 overflow-hidden">
+                      <div className="relative w-28 shrink-0 overflow-hidden sm:w-36">
                         <img src={dest.img} alt={dest.name} className="h-full w-full object-cover brightness-105 saturate-110 transition-transform duration-300 group-hover:scale-110" />
                         <div className="absolute inset-0 bg-gradient-to-r from-black/5 to-transparent" />
                       </div>

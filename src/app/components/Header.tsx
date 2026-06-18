@@ -23,6 +23,7 @@ export function Header({ user, onLogout }: { user: StoredUser | null; onLogout: 
     { name: 'Home', path: '/' },
     { name: 'Planejamento', path: '/planejamento' },
     ...(user && hasTripPlan ? [{ name: 'Checkout', path: '/checkout' }] : []),
+    ...(user ? [{ name: 'Roteiros', path: '/roteiros' }] : []),
     ...(user ? [{ name: 'Suporte', path: '/suporte' }] : []),
   ];
 
@@ -93,7 +94,7 @@ export function Header({ user, onLogout }: { user: StoredUser | null; onLogout: 
               )}
             </div>
             <button
-              className="md:hidden rounded-full p-2 hover:bg-gray-50"
+              className="md:hidden rounded-full p-3 hover:bg-gray-50"
               onClick={() => setMobileOpen((v) => !v)}
               aria-label="Menu"
             >
